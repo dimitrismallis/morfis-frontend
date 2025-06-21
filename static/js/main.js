@@ -1,0 +1,724 @@
+document.addEventListener('DOMContentLoaded', async function() {
+    // Generate or retrieve tab-specific ID for independent sessions per tab
+    // Use Broadcast Channel API to detect duplicate tabs
+    let tabId = sessionStorage.getItem('tabId');
+    
+    if (!tabId) {
+        // First time loading, create new tab ID
+        tabId = 'tab_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        sessionStorage.setItem('tabId', tabId);
+    } else {
+        // Check if another tab with same ID is already active
+        try {
+            if (typeof BroadcastChannel !== 'undefined') {
+                const channel = new BroadcastChannel('morfis-tab-check');
+                let responseReceived = false;
+                
+                // Listen for responses from other tabs
+                const responseHandler = (event) => {
+                    if (event.data.type === 'tab-exists' && event.data.tabId === tabId) {
+                        // Another tab with same ID exists, create new session
+                        responseReceived = true;
+                        tabId = 'tab_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                        sessionStorage.setItem('tabId', tabId);
+                        console.log('Duplicate tab detected, created new session:', tabId);
+                    }
+                };
+                
+                channel.addEventListener('message', responseHandler);
+                
+                // Ask if any tab with this ID already exists
+                channel.postMessage({ type: 'check-tab', tabId: tabId });
+                
+                // Wait briefly for responses
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                // Set up ongoing duplicate detection for future duplicates
+                channel.addEventListener('message', (event) => {
+                    if (event.data.type === 'check-tab' && event.data.tabId === tabId) {
+                        // Another tab is checking for our ID, tell them we exist
+                        channel.postMessage({ type: 'tab-exists', tabId: tabId });
+                    }
+                });
+            } else {
+                // Fallback: use localStorage with timestamp for older browsers
+                const timestamp = Date.now();
+                const lastActivity = localStorage.getItem('morfis-last-activity-' + tabId);
+                
+                if (lastActivity && (timestamp - parseInt(lastActivity)) < 5000) {
+                    // Another tab was active recently with same ID, create new session
+                    tabId = 'tab_' + Math.random().toString(36).substr(2, 9) + '_' + timestamp;
+                    sessionStorage.setItem('tabId', tabId);
+                    console.log('Duplicate tab detected (fallback), created new session:', tabId);
+                }
+                
+                // Update activity timestamp for this tab
+                localStorage.setItem('morfis-last-activity-' + tabId, timestamp.toString());
+                
+                // Periodically update activity to indicate this tab is alive
+                setInterval(() => {
+                    localStorage.setItem('morfis-last-activity-' + tabId, Date.now().toString());
+                }, 2000);
+            }
+        } catch (error) {
+            console.warn('Error in duplicate tab detection:', error);
+            // Continue with existing tabId if detection fails
+        }
+    }
+    
+    // Set up default headers for all requests to include tab ID
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+        options.headers = options.headers || {};
+        options.headers['X-Tab-ID'] = tabId;
+        return originalFetch(url, options);
+    };
+    
+    // Calculate scrollbar width and add it as a CSS variable to prevent layout shifts
+    const calculateScrollbarWidth = () => {
+        // Create a div with scrollbar
+        const outer = document.createElement('div');
+        outer.style.visibility = 'hidden';
+        outer.style.overflow = 'scroll';
+        document.body.appendChild(outer);
+        
+        // Create an inner div
+        const inner = document.createElement('div');
+        outer.appendChild(inner);
+        
+        // Calculate the width difference
+        const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+        
+        // Remove the divs
+        outer.parentNode.removeChild(outer);
+        
+        // Set the scrollbar width as a CSS variable
+        document.documentElement.style.setProperty('--scrollbar-width', scrollbarWidth + 'px');
+        console.log('Scrollbar width calculated:', scrollbarWidth);
+    };
+    
+    // Calculate scrollbar width on load
+    calculateScrollbarWidth();
+    
+    const commandForm = document.getElementById('commandForm');
+    const commandInput = document.getElementById('commandInput');
+    const conversationContainer = document.getElementById('conversationContainer');
+    const designDropdown = document.getElementById('designDropdown'); // Container for dynamic design options
+    let loadingMessage = null;
+    let messageIndex = 0;
+    let isWaitingForResponse = false; // Track if we're waiting for a response
+    window.trajectoryPollingInterval = null; // Global reference for trajectory polling
+    
+    // Auto-expand functionality for textarea
+    function adjustTextareaHeight() {
+        // Get current content to check for multiline
+        const content = commandInput.value;
+        const lineCount = (content.match(/\n/g) || []).length + 1;
+        
+        // Always reset to auto height first to get proper scrollHeight calculation
+        commandInput.style.height = 'auto';
+        
+        if (lineCount > 1 || commandInput.scrollHeight > 52) {
+            // For multi-line content or overflowing content, use scrollHeight
+            const newHeight = Math.min(commandInput.scrollHeight, 150); // Max 150px
+            commandInput.style.height = newHeight + 'px';
+            
+            // Add overflow class if content exceeds max height
+            if (commandInput.scrollHeight > 150) {
+                commandInput.classList.add('overflow');
+            } else {
+                commandInput.classList.remove('overflow');
+            }
+        } else {
+            // For single line, keep fixed height
+            commandInput.style.height = '52px';
+            commandInput.classList.remove('overflow');
+        }
+    }
+    
+    // Initialize textarea height with consistent sizing
+    commandInput.style.height = '52px'; // Set initial height directly
+    adjustTextareaHeight();
+    
+    // Adjust height when typing or pasting
+    commandInput.addEventListener('input', adjustTextareaHeight);
+    commandInput.addEventListener('paste', () => {
+        // Use setTimeout to allow paste content to be inserted
+        setTimeout(adjustTextareaHeight, 0);
+    });
+    
+    // Handle key events - Enter to submit, Shift+Enter for new line
+    commandInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); // Prevent default new line behavior
+            if (commandInput.value.trim()) {
+                commandForm.dispatchEvent(new Event('submit'));
+            }
+        }
+    });
+    
+    // Reset height when form submits - but keep consistent layout
+    commandForm.addEventListener('submit', () => {
+        setTimeout(() => {
+            // Set height directly without changing the layout
+            commandInput.value = '';
+            commandInput.style.height = '52px'; // Match initial height plus padding
+            commandInput.classList.remove('overflow');
+        }, 0);
+    });
+    
+    // Fetch app configuration (design types) at startup
+    try {
+        const response = await fetch('/api/config');
+        if (!response.ok) {
+            throw new Error('Failed to fetch app configuration');
+        }
+        
+        const config = await response.json();
+        
+        // Display welcome message if one is provided
+        if (config.welcome_message) {
+            addMessage(config.welcome_message, 'system');
+        }
+        
+        // Update model if one is provided in the initial configuration
+        if (config.model) {
+            console.log('Loading initial 3D model from config');
+            updateModel(config.model);
+        }
+        
+        // Dynamic creation of design type menu items
+        if (config.design_types && config.design_types.length > 0) {
+            // Clear existing items
+            designDropdown.innerHTML = '';
+            
+            // Add each design type as a dropdown item
+            config.design_types.forEach(designType => {
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.className = 'dropdown-item';
+                link.href = '#';
+                link.textContent = designType.name;
+                link.setAttribute('data-design-id', designType.id);
+                link.setAttribute('title', designType.description);
+                
+                // Add click event listener
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    handleDesignSelection(designType.id);
+                });
+                
+                listItem.appendChild(link);
+                designDropdown.appendChild(listItem);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading app configuration:', error);
+        // Fallback to default items if API fails
+    }
+
+    // Handler for selecting any design type
+    async function handleDesignSelection(designType) {
+        // Prevent selecting a design while waiting for a response
+        if (isWaitingForResponse) {
+            console.log('Waiting for previous response, ignoring new design selection');
+            return;
+        }
+
+        try {
+            console.log(`Starting new design of type: ${designType}`);
+            
+            // Set waiting state and disable input
+            isWaitingForResponse = true;
+            updateCommandInputState(true);
+            
+            // Reset message index
+            messageIndex = 0;
+
+            // Clear conversation
+            conversationContainer.innerHTML = '';
+
+            // Clear input
+            commandInput.value = '';
+
+            // Reset 3D viewer
+            if (typeof resetViewer === 'function') {
+                resetViewer();
+            }
+
+            // Show loading message without starting trajectory polling
+            // We use a different loading message function for design selection
+            // to avoid unnecessary trajectory polling
+            const loadingMsg = addLoadingMessageWithoutPolling();
+
+            // Call backend
+            const response = await fetch('/new_design', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ type: designType })
+            });
+
+            // Remove loading message
+            if (loadingMsg) {
+                loadingMsg.remove();
+            }
+
+            if (!response.ok) {
+                throw new Error(`Failed to start ${designType} design`);
+            }
+
+            const data = await response.json();
+
+            // Always display the message from the backend for new designs
+            if (data.message) {
+                addMessage(data.message, 'system');
+            } else {
+                // Fallback message if none is provided
+                addMessage(`New ${designType.replace('_', ' ')} design started.`, 'system');
+            }
+
+            // Update model if one is provided
+            if (data.model) {
+                updateModel(data.model);
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            addMessage(`Error: Failed to start ${designType} design`, 'system error');
+        } finally {
+            // Reset waiting state and enable input
+            isWaitingForResponse = false;
+            updateCommandInputState(false);
+        }
+    }
+
+    // For backwards compatibility - attach click handlers to the static buttons too
+    const emptyDesignBtn = document.getElementById('emptyDesign');
+    if (emptyDesignBtn) {
+        emptyDesignBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleDesignSelection('empty');
+        });
+    }
+
+    const coffeeTableBtn = document.getElementById('coffeeTable');
+    if (coffeeTableBtn) {
+        coffeeTableBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleDesignSelection('coffee_table');
+        });
+    }
+
+    async function handleRollback(targetIndex, button) {
+        try {
+            // Add loading state for button
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner"></i> Rolling back...';
+            button.classList.add('loading');
+            button.disabled = true;
+            
+            // Note: we intentionally don't show a loading animation message or start trajectory polling
+            // for rollback operations, as they should be quick and don't involve model generation
+
+            const response = await fetch('/rollback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message_index: targetIndex })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to rollback');
+            }
+
+            const data = await response.json();
+            
+            // Handle model update or reset
+            if (data.model) {
+                // If we have a model, update it
+                updateModel(data.model);
+            } else if (data.reset_viewer) {
+                // If no model but reset flag is set, reset the viewer
+                if (typeof resetViewer === 'function') {
+                    resetViewer();
+                }
+            }
+            
+            // If response message is provided, add it to the conversation
+            if (data.message && !data.error) {
+                addMessage(data.message, 'system');
+            }
+
+            // Remove all messages after the clicked rollback button
+            const messages = conversationContainer.getElementsByClassName('message');
+            const currentMessage = button.closest('.message');
+            let foundCurrent = false;
+            let messagesToRemove = [];
+
+            // Collect messages to remove
+            for (let message of messages) {
+                if (foundCurrent) {
+                    messagesToRemove.push(message);
+                }
+                if (message === currentMessage) {
+                    foundCurrent = true;
+                }
+            }
+
+            // Remove collected messages
+            messagesToRemove.forEach(message => message.remove());
+
+            // Update the messageIndex to match the rolled back state
+            messageIndex = targetIndex + 1;
+
+            // Update or remove rollback buttons after messages are removed
+            const remainingMessages = conversationContainer.getElementsByClassName('message');
+            let lastRemainingSystemMessage = null;
+
+            // Find the new last system message
+            for (let message of remainingMessages) {
+                if (message.classList.contains('system-message')) {
+                    lastRemainingSystemMessage = message;
+                }
+            }
+
+            // Update rollback buttons for all remaining messages
+            for (let message of remainingMessages) {
+                if (message.classList.contains('system-message')) {
+                    const messageContent = message.querySelector('.message-content');
+                    let buttonContainer = messageContent.querySelector('.button-container');
+
+                    // Remove existing button container if it exists
+                    if (buttonContainer) {
+                        buttonContainer.remove();
+                    }
+
+                    // Add rollback button only if this is not the last system message
+                    if (message !== lastRemainingSystemMessage) {
+                        buttonContainer = document.createElement('div');
+                        buttonContainer.className = 'button-container';
+
+                        const rollbackButton = document.createElement('button');
+                        rollbackButton.className = 'rollback-btn';
+                        rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
+                        const currentIndex = parseInt(message.dataset.messageIndex);
+                        rollbackButton.onclick = () => handleRollback(currentIndex, rollbackButton);
+
+                        buttonContainer.appendChild(rollbackButton);
+                        messageContent.appendChild(buttonContainer);
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            addMessage('Error: Failed to rollback', 'system error');
+        } finally {
+            // Reset button state
+            button.innerHTML = '<i class="fas fa-history"></i> Rollback here';
+            button.classList.remove('loading');
+            button.disabled = false;
+        }
+    }
+
+    async function addMessage(text, type) {
+        console.log('Adding message:', type, text);
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}-message`;
+
+        // Store the current message index as a data attribute
+        if (type === 'system') {
+            messageDiv.dataset.messageIndex = messageIndex;
+        }
+
+        // Create icon container
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'message-icon';
+
+        // Add appropriate icon based on message type
+        if (type === 'user') {
+            // Use the designer icon for user messages
+            const designerImg = document.createElement('img');
+            designerImg.src = '/static/images/designericon.png';
+            designerImg.alt = 'Designer Icon';
+            designerImg.className = 'designer-icon';
+            iconDiv.appendChild(designerImg);
+        } else {
+            // System messages use the Morfis logo
+            const logoImg = document.createElement('img');
+            logoImg.src = '/static/images/logo.png';
+            logoImg.alt = 'Morfis Logo';
+            logoImg.className = 'morfis-logo';
+            iconDiv.appendChild(logoImg);
+        }
+
+        // Create message content container
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+
+        // Add rollback button for system messages that are not errors
+        if (type === 'system') {
+            const currentIndex = messageIndex++;
+            const textContainer = document.createElement('div');
+            textContainer.className = 'message-text';
+
+            contentDiv.appendChild(textContainer);
+
+            // Append elements to DOM before starting the typing animation
+            messageDiv.appendChild(iconDiv);
+            messageDiv.appendChild(contentDiv);
+            conversationContainer.appendChild(messageDiv);
+
+            console.log('Starting progressive typing for system message');
+            await typeMessage(textContainer, text);
+            console.log('Finished progressive typing');
+
+            // After the message is typed, update rollback buttons for all system messages
+            const messages = conversationContainer.getElementsByClassName('message');
+            let lastSystemMessage = null;
+
+            // Find the last system message
+            for (let message of messages) {
+                if (message.classList.contains('system-message')) {
+                    lastSystemMessage = message;
+                }
+            }
+
+            // Add or update rollback buttons for all system messages except the last one
+            for (let message of messages) {
+                if (message.classList.contains('system-message')) {
+                    const messageContent = message.querySelector('.message-content');
+                    let buttonContainer = messageContent.querySelector('.button-container');
+
+                    // Remove existing button container if it exists
+                    if (buttonContainer) {
+                        buttonContainer.remove();
+                    }
+
+                    // Add rollback button only if this is not the last system message
+                    if (message !== lastSystemMessage) {
+                        buttonContainer = document.createElement('div');
+                        buttonContainer.className = 'button-container';
+
+                        const rollbackButton = document.createElement('button');
+                        rollbackButton.className = 'rollback-btn';
+                        rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
+                        const msgIndex = parseInt(message.dataset.messageIndex);
+                        rollbackButton.onclick = () => handleRollback(msgIndex, rollbackButton);
+
+                        buttonContainer.appendChild(rollbackButton);
+                        messageContent.appendChild(buttonContainer);
+                    }
+                }
+            }
+        } else {
+            // For non-system messages, just add the text
+            contentDiv.textContent = text;
+            messageDiv.appendChild(iconDiv);
+            messageDiv.appendChild(contentDiv);
+            conversationContainer.appendChild(messageDiv);
+        }
+
+        // Scroll to bottom
+        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+    }
+
+    function showLoadingMessage() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message system-message';
+
+        // Create icon container
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'message-icon';
+        // Use Morfis logo for loading message as well
+        const logoImg = document.createElement('img');
+        logoImg.src = '/static/images/logo.png';
+        logoImg.alt = 'Morfis Logo';
+        logoImg.className = 'morfis-logo';
+        iconDiv.appendChild(logoImg);
+
+        // Create loading animation
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading-message';
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'loading-dot';
+            loadingDiv.appendChild(dot);
+        }
+
+        messageDiv.appendChild(iconDiv);
+        messageDiv.appendChild(loadingDiv);
+        conversationContainer.appendChild(messageDiv);
+        
+        // Start trajectory polling when loading begins
+        if (!window.trajectoryPollingInterval) {
+            console.log("Starting trajectory polling during model generation");
+            window.trajectoryPollingInterval = setInterval(function() {
+                // Call loadTrajectoryContent if it exists
+                if (typeof window.loadTrajectoryContent === 'function') {
+                    window.loadTrajectoryContent();
+                }
+            }, 5000); // Updated polling interval from 3 to 5 seconds
+        }
+        
+        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+        return messageDiv;
+    }
+
+    async function typeMessage(element, text) {
+        console.log('Starting typeMessage with text:', text);
+        const delay = 30; // Delay between each character (ms)
+        element.textContent = ''; // Clear the element first
+        for (let i = 0; i < text.length; i++) {
+            element.textContent += text[i];
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        console.log('Finished typeMessage');
+    }
+
+    commandForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        // Prevent submitting multiple commands while waiting for a response
+        if (isWaitingForResponse) {
+            console.log('Waiting for previous response, ignoring new submission');
+            return;
+        }
+
+        const command = commandInput.value.trim();
+        if (!command) return;
+
+        // Set waiting state and disable input
+        isWaitingForResponse = true;
+        updateCommandInputState(true);
+
+        // Add user message to conversation
+        addMessage(command, 'user');
+        commandInput.value = '';
+
+        // Show loading message
+        loadingMessage = showLoadingMessage();
+
+        try {
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ command: command })
+            });
+
+            const data = await response.json();
+
+            // Remove loading message
+            if (loadingMessage) {
+                loadingMessage.remove();
+                loadingMessage = null;
+                
+                // Stop trajectory polling when generation is complete
+                if (window.trajectoryPollingInterval) {
+                    console.log("Stopping trajectory polling after model generation");
+                    clearInterval(window.trajectoryPollingInterval);
+                    window.trajectoryPollingInterval = null;
+                }
+            }
+
+            if (response.ok) {
+                // Add system response to conversation
+                addMessage(data.message, 'system');
+
+                // Update or reset 3D model
+                if (data.model) {
+                    updateModel(data.model);
+                } else if (data.reset_viewer) {
+                    // If reset_viewer flag is set, reset the 3D viewer
+                    if (typeof resetViewer === 'function') {
+                        resetViewer();
+                    }
+                }
+            } else {
+                addMessage('Error: ' + data.error, 'system error');
+            }
+        } catch (error) {
+            // Remove loading message on error
+            if (loadingMessage) {
+                loadingMessage.remove();
+                loadingMessage = null;
+                
+                // Also stop trajectory polling on error
+                if (window.trajectoryPollingInterval) {
+                    console.log("Stopping trajectory polling after error");
+                    clearInterval(window.trajectoryPollingInterval);
+                    window.trajectoryPollingInterval = null;
+                }
+            }
+            console.error('Error:', error);
+            addMessage('Error: Failed to process command', 'system error');
+        } finally {
+            // Reset waiting state and enable input
+            isWaitingForResponse = false;
+            updateCommandInputState(false);
+        }
+    });
+    
+    // Function to update the command input state (disabled/enabled)
+    function updateCommandInputState(disabled) {
+        commandInput.disabled = disabled;
+        const submitButton = commandForm.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = disabled;
+        }
+        
+        // Add visual indication that the input is disabled
+        if (disabled) {
+            commandInput.classList.add('waiting');
+            if (submitButton) {
+                submitButton.classList.add('waiting');
+            }
+        } else {
+            commandInput.classList.remove('waiting');
+            if (submitButton) {
+                submitButton.classList.remove('waiting');
+            }
+        }
+    }
+    
+    // Function to show loading message without starting trajectory polling
+    // Used for non-generative operations like new design and rollback
+    function addLoadingMessageWithoutPolling() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message system-message';
+
+        // Create icon container
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'message-icon';
+        // Use Morfis logo for loading message
+        const logoImg = document.createElement('img');
+        logoImg.src = '/static/images/logo.png';
+        logoImg.alt = 'Morfis Logo';
+        logoImg.className = 'morfis-logo';
+        iconDiv.appendChild(logoImg);
+
+        // Create loading animation without starting polling
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message-content loading-dots';
+        
+        // Create three dots in a row with proper styling
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('span');
+            loadingDiv.appendChild(dot);
+        }
+
+        messageDiv.appendChild(iconDiv);
+        messageDiv.appendChild(loadingDiv);
+        conversationContainer.appendChild(messageDiv);
+        
+        // Unlike showLoadingMessage, we do NOT start trajectory polling here
+        
+        conversationContainer.scrollTop = conversationContainer.scrollHeight;
+        return messageDiv;
+    }
+});

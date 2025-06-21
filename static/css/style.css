@@ -1,0 +1,1318 @@
+:root {
+    --primary-color: #9146FF; /* Original vibrant purple */
+    --secondary-color: #202123;
+    --background-color: #FFFFFF;
+    --text-color: #353740;
+    --accent-color: #6E6E80;
+    --user-message-bg: #f7f7f8;
+    --system-message-bg: #ffffff;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0 !important; /* Prevent Bootstrap from adding padding */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text-color);
+    background-color: var(--background-color) !important; /* Force white background */
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+    overflow-y: auto; /* Use auto instead of scroll */
+}
+
+/* Add padding to the top of the container to account for the fixed header */
+.container-fluid {
+    padding-top: 0 !important; /* No padding needed at container level */
+}
+
+/* Prevent Bootstrap modal from adding padding-right to body */
+body.modal-open {
+    overflow: hidden !important; /* Prevent scrolling of the main page when modal is open */
+    padding-right: 0 !important;
+}
+
+.app-header {
+    position: relative; /* Not fixed anymore, relative to chat panel */
+    width: 100%; /* Full width of the chat panel */
+    z-index: 1000;
+    background-color: var(--primary-color); /* Solid color background */
+    height: 50px; /* Thinner header */
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    box-shadow: 0 4px 12px rgba(107, 63, 161, 0.3); /* Less saturated shadow with purple tint */
+    margin-bottom: 16px; /* Less space between thinner header and chat messages */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border for definition */
+    position: relative;
+    overflow: hidden; /* For the decorative elements */
+    border-bottom-left-radius: 16px; /* Rounded bottom left corner */
+    border-bottom-right-radius: 16px; /* Rounded bottom right corner */
+}
+
+/* Decorative element */
+.app-header:before {
+    content: "";
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    width: 70px; /* Smaller circle */
+    height: 70px; /* Smaller circle */
+    background: #7700cc; /* Slightly darker shade of purple */
+    opacity: 0.4; /* Make it semi-transparent */
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* Second decorative element removed */
+
+.app-header h1 {
+    margin: 0;
+    font-size: 1.25rem; /* Even smaller text */
+    font-weight: 400; /* Regular weight instead of bold */
+    color: white; /* White text */
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Text shadow for depth */
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+}
+
+/* Header logo styling */
+.header-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    margin-right: 8px;
+    border-radius: 4px;
+}
+
+/* Cube icon removed */
+
+.chat-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--background-color);
+    position: relative; /* For the pseudo-element */
+    padding: 0;
+}
+
+/* Create a full-height border that goes through the header */
+.chat-panel::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 100%;
+    background-color: #e5e5e5;
+    z-index: 50; /* Lower than modal z-index */
+    pointer-events: none; /* So it doesn't interfere with clicks */
+}
+
+.conversation-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 16px;
+    padding-top: 0; /* Remove extra padding since we have container padding now */
+}
+
+.input-container {
+    padding: 16px;
+    border-top: 1px solid #e5e5e5;
+}
+
+.command-form {
+    margin-bottom: 16px;
+}
+
+.input-container-wrapper {
+    position: relative;
+    display: flex;
+    width: 100%;
+}
+
+.message {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    gap: 16px;
+}
+
+.user-message {
+    flex-direction: row-reverse;
+}
+
+.message-icon {
+    flex-shrink: 0;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.user-message .message-icon {
+    background-color: #202123; /* Black background */
+    color: white;
+    border: 0.5px solid black; /* Ultra-thin black border */
+    overflow: hidden; /* Keep the image contained within the circle */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.user-message .message-icon img.designer-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 50%; /* Ensure the image itself has rounded corners */
+    padding: 0; /* No padding for maximum size */
+}
+
+/* Legacy support for icon font if no designer icon is used */
+.user-message .message-icon i {
+    font-size: 20px;
+}
+
+.system-message .message-icon {
+    background-color: transparent;
+    color: #202123;
+}
+
+.morfis-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 50%;
+    margin: -5px;  /* Negative margin to compensate for larger size */
+}
+
+.message-content {
+    flex-grow: 1;
+    padding: 12px 16px;
+    border-radius: 8px;
+    max-width: 85%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.message-text {
+    margin: 0;
+}
+
+.user-message .message-content {
+    background-color: var(--user-message-bg);
+}
+
+.system-message .message-content {
+    background-color: var(--system-message-bg);
+    border: 1px solid #e5e5e5;
+}
+
+.loading-message {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background-color: var(--system-message-bg);
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    max-width: fit-content;
+}
+
+.loading-dot {
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    animation: loading 1.4s infinite ease-in-out;
+    display: inline-block; /* Make dots display inline */
+}
+
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.loading-dot:nth-child(3) { animation-delay: 0s; }
+
+@keyframes loading {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}
+
+/* Styling for the loading-dots class used for non-polling animations */
+.loading-dots {
+    display: flex !important;
+    flex-direction: row !important; 
+    align-items: center !important;
+    justify-content: center !important;
+    height: auto !important;
+    padding: 8px 12px !important;
+    background-color: var(--system-message-bg);
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    max-width: fit-content;
+}
+
+.loading-dots span {
+    width: 8px;
+    height: 8px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0 4px;
+    animation: loading 1.4s infinite ease-in-out;
+}
+
+.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+.loading-dots span:nth-child(3) { animation-delay: 0s; }
+
+.viewer-panel {
+    height: 100vh;
+    padding: 0;
+    background-color: #f7f7f8;
+    position: relative;
+}
+
+#modelViewer {
+    width: 100%;
+    height: 100%;
+}
+
+
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    min-height: 40px; /* Match the initial height of textarea */
+    height: fit-content; /* Take height of content when needed */
+    align-self: stretch; /* Stretch to match height */
+}
+
+.btn-primary:hover {
+    background-color: #7700cc; /* Darker shade of vibrant purple */
+    border-color: #7700cc;
+}
+
+.send-button {
+    position: absolute;
+    right: 8px;
+    bottom: 8px; /* Fixed position from bottom */
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    min-height: 36px;
+    z-index: 5;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
+    transform: translateY(0); /* Prevent movement */
+    transition: background-color 0.2s ease; /* Only transition the color */
+}
+
+.input-group {
+    background-color: var(--background-color);
+    border-radius: 8px;
+    display: flex;
+    align-items: flex-end; /* Align button to bottom when textarea grows */
+}
+
+.form-control {
+    border: 1px solid #e5e5e5;
+    padding: 12px;
+    font-size: 16px;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: none;
+}
+
+/* Textarea auto-expand styles */
+textarea.auto-expand {
+    resize: none; /* Disable manual resize */
+    overflow-y: hidden; /* Hide scrollbar by default */
+    min-height: 52px; /* Prevent shrinking below this */
+    max-height: 150px; /* Maximum height before scrolling */
+    width: 100%;
+    line-height: 1.5;
+    transition: height 0.2s ease;
+    white-space: pre-wrap; /* Allow text to wrap */
+    word-wrap: break-word; /* Break long words */
+    padding-right: 50px; /* Add space for the send button */
+    padding-top: 14px; /* Center text vertically */
+    padding-bottom: 14px; /* Center text vertically */
+    border-radius: 20px; /* Rounded corners */
+}
+
+textarea.auto-expand.overflow {
+    overflow-y: auto; /* Show scrollbar when max height is reached */
+}
+
+/* Waiting state styles */
+textarea.auto-expand.waiting {
+    background-color: #f5f5f5; /* Light gray background */
+    cursor: not-allowed; /* Change cursor to indicate disabled state */
+    opacity: 0.8; /* Slightly reduce opacity */
+}
+
+button.waiting {
+    opacity: 0.7; /* Reduce opacity for waiting button */
+    cursor: not-allowed; /* Change cursor to indicate disabled state */
+}
+
+@media (max-width: 768px) {
+    .row {
+        flex-direction: column;
+    }
+
+    .chat-panel, .viewer-panel {
+        height: 50vh;
+    }
+}
+
+.viewer-top-controls {
+    position: absolute;
+    top: 16px;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 38px; /* Fixed height for the control bar */
+}
+
+.viewer-left-controls {
+    display: flex;
+    gap: 10px; /* Space between buttons */
+    align-items: center; /* Vertically center the buttons */
+}
+
+/* Ensure buttons in this container have same height */
+.viewer-left-controls button {
+    height: 38px !important;
+}
+
+.custom-btn {
+    color: white;
+    border: none !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    transition: background-color 0.2s;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    height: 38px !important; /* Fixed height with !important to override Bootstrap */
+    line-height: 22px !important; /* Fixed line height */
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important; /* Ensure content is centered */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box !important; /* Include padding in height calculation */
+    min-width: 126px !important; /* Set minimum width to match the buttons */
+    margin: 0 !important; /* Reset any Bootstrap margins */
+}
+
+/* Make icons the same size */
+#trajectoryBtn i, #newDesignBtn i, #saveDesignBtn i {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+}
+
+#trajectoryBtn {
+    background-color: var(--primary-color) !important;
+}
+
+#trajectoryBtn:hover, #trajectoryBtn:focus {
+    background-color: #7700cc !important; /* Darker shade of vibrant purple */
+}
+
+#saveDesignBtn {
+    background-color: #28a745 !important; /* Green color for save button */
+}
+
+#saveDesignBtn:hover, #saveDesignBtn:focus {
+    background-color: #218838 !important; /* Darker green on hover */
+}
+
+#newDesignBtn {
+    background-color: var(--secondary-color) !important; /* Black background (#202123) */
+}
+
+#newDesignBtn:hover,
+#newDesignBtn:focus {
+    background-color: #2d2d30 !important; /* Slightly lighter shade of black on hover */
+}
+
+/* Save Design Modal Styles */
+#saveDesignModal .modal-content {
+    border-radius: 12px;
+    border: 0.5px solid #d0d0d0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+#saveDesignModal .modal-header {
+    border-bottom: 1px solid #e5e5e5;
+    padding: 16px 24px;
+    background-color: #f7f7f8;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+#saveDesignModal .modal-title {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 18px;
+}
+
+#saveDesignModal .btn-close {
+    background-color: var(--primary-color);
+    color: white !important;
+    opacity: 1;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e");
+}
+
+#saveDesignModal .btn-close:hover {
+    background-color: #7700cc;
+}
+
+#saveDesignStatus {
+    padding: 10px;
+    border-radius: 5px;
+}
+
+#saveDesignStatus.success {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+#saveDesignStatus.error {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.2);
+}
+
+.button-container {
+    margin-top: 8px;
+    padding: 0;
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.rollback-btn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 90%;
+}
+
+.rollback-btn.loading {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.rollback-btn.loading i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.rollback-btn:hover {
+    background-color: #2d2d30;
+}
+
+.rollback-btn i {
+    font-size: 12px;
+}
+
+.dropdown-menu {
+    background-color: var(--background-color);
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+    color: var(--text-color);
+    padding: 8px 16px;
+    transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: #f7f7f8;
+    color: var(--text-color);
+}
+
+/* Color Selector Styles */
+.color-selector-container {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0;
+    padding: 0;
+    z-index: 10;
+}
+
+/* Specific positioning for the top positioned color selector */
+.color-selector-container.top-positioned {
+    position: absolute;
+    top: 70px; /* Positioned below the buttons with adequate space */
+    left: 16px; /* Align with the trajectory button (same left padding as viewer-top-controls) */
+    margin: 0;
+}
+
+.color-selector-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center align all contents */
+    background-color: #f7f7f8;
+    padding: 8px 18px 15px 20px; /* Less padding at top (10px), moderate padding at bottom (15px) */
+    border-radius: 10px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(145, 70, 255, 0.3); /* Purple border for visibility */
+    max-width: 200px; /* Slightly wider to accommodate larger padding */
+    margin: 0; /* Reset margin */
+}
+
+.color-selector-label {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 400; /* Match the weight used elsewhere */
+    color: var(--text-color);
+    margin-bottom: 10px; /* More space below the label */
+    text-align: center; /* Center aligned as requested */
+    letter-spacing: 0.01em; /* Subtle letter spacing for better readability */
+}
+
+.color-selector {
+    display: flex;
+    gap: 12px; /* Increased gap between colors */
+}
+
+.color-option {
+    width: 20px; /* Smaller color circles */
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.color-option.active {
+    box-shadow: 0 0 0 1px white, 0 0 0 2px var(--text-color);
+    transform: scale(1.05);
+}
+
+/* Waitlist Button Styles */
+.waitlist-button-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100;
+}
+
+.waitlist-button {
+    color: white;
+    background-color: var(--primary-color); /* Purple color to match app theme */
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    font-size: 16px;
+}
+
+.waitlist-button:hover {
+    background-color: #7700cc; /* Darker purple */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.waitlist-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Waitlist Form Modal Styles */
+.waitlist-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.waitlist-modal.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.waitlist-form-container {
+    background-color: white;
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+
+.waitlist-modal.show .waitlist-form-container {
+    transform: translateY(0);
+}
+
+.waitlist-form-container h3 {
+    color: var(--text-color);
+    font-size: 24px;
+    margin-bottom: 25px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.2s ease;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.2);
+}
+
+.consent-group {
+    display: flex;
+    align-items: flex-start;
+}
+
+.consent-group input[type="checkbox"] {
+    margin-top: 3px;
+    margin-right: 10px;
+}
+
+.consent-group label {
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: normal;
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.cancel-btn {
+    background-color: #f3f4f6;
+    color: #4b5563;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.cancel-btn:hover {
+    background-color: #e5e7eb;
+}
+
+.submit-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.submit-btn:hover {
+    background-color: #7700cc;
+}
+
+.submit-btn:disabled {
+    background-color: #a78bda;
+    cursor: not-allowed;
+}
+
+/* Waitlist Alert Styles */
+.waitlist-alert {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.waitlist-alert.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.alert-content {
+    background-color: white;
+    border-radius: 10px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+
+.waitlist-alert.show .alert-content {
+    transform: translateY(0);
+}
+
+.alert-content h3 {
+    color: var(--text-color);
+    font-size: 24px;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.alert-content p {
+    color: var(--text-color);
+    font-size: 16px;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.alert-content.success h3 {
+    color: #16a34a;
+}
+
+.alert-content.error h3 {
+    color: #dc2626;
+}
+
+.alert-close-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 25px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.alert-close-btn:hover {
+    background-color: #7700cc;
+}
+
+/* Trajectory Modal Styles */
+/* Remove modal backdrop completely */
+.modal-backdrop {
+    display: none !important; /* Hide backdrop completely */
+}
+
+/* Override Bootstrap modal styles */
+.modal {
+    background-color: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    z-index: 1200 !important; /* Higher z-index to stay above the border line */
+}
+
+#trajectoryModal {
+    background-color: rgba(255, 255, 255, 0.85); /* Semi-transparent white background */
+    overflow: hidden !important; /* No scrollbars on the modal container */
+    z-index: 1200; /* Higher z-index to stay above the border line */
+}
+
+#trajectoryModal .modal-dialog {
+    overflow: hidden !important; /* Ensure no scrollbars on the dialog */
+    max-height: 90vh; /* Limit dialog height to prevent overflow */
+    position: relative;
+    z-index: 1200; /* Higher z-index to stay above the border line */
+}
+
+#trajectoryModal .modal-content {
+    border-radius: 12px;
+    border: 0.5px solid #d0d0d0; /* Ultra thin gray border */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    margin: 0 auto; /* Center the modal */
+    max-height: 90vh; /* Ensure modal fits in viewport */
+    display: flex;
+    flex-direction: column; /* Stack header, body, footer */
+    position: relative;
+    z-index: 1200; /* Higher z-index to stay above the border line */
+}
+
+#trajectoryModal .modal-header {
+    border-bottom: 1px solid #e5e5e5;
+    padding: 16px 24px;
+    background-color: #f7f7f8;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#trajectoryModal .modal-title {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 18px;
+}
+
+#trajectoryModal .modal-body {
+    padding: 24px;
+    min-height: 400px;
+    max-height: 75vh; /* Slightly shorter to ensure it fits within the modal */
+    overflow-y: auto; /* Only show scrollbar in the modal body */
+    overflow-x: hidden; /* Prevent horizontal scrollbar */
+    flex: 1; /* Allow body to expand to fill available space */
+}
+
+#trajectoryModal .btn-close {
+    background-color: var(--primary-color);
+    color: white !important;
+    opacity: 1;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+    /* Force white X icon */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e");
+}
+
+#trajectoryModal .btn-close:hover {
+    background-color: #7700cc; /* Darker shade of vibrant purple */
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+}
+
+.loading-spinner .spinner-border {
+    color: var(--primary-color) !important;
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 16px;
+}
+
+.loading-spinner p {
+    color: var(--text-color);
+    font-size: 16px;
+}
+
+/* Trajectory Timeline Styles */
+.trajectory-timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.trajectory-timeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #e5e5e5;
+}
+
+.trajectory-step {
+    position: relative;
+    display: flex;
+    margin-bottom: 24px;
+    padding-left: 20px;
+}
+
+.step-marker {
+    position: absolute;
+    left: -10px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.step-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.step-content {
+    padding-left: 40px;
+    flex: 1;
+}
+
+.step-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.step-description {
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.step-time {
+    font-size: 12px;
+    color: #6e6e80;
+}
+
+.no-data, .error-message {
+    text-align: center;
+    padding: 40px 0;
+    color: var(--text-color);
+}
+
+.error-message {
+    color: #e53935;
+}
+
+.error-message i {
+    font-size: 32px;
+    margin-bottom: 16px;
+}
+
+/* Custom Trajectory Content Styles */
+.trajectory-container {
+    font-family: 'Inter', sans-serif;
+    color: var(--text-color);
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.trajectory-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.trajectory-header h2 {
+    font-weight: 600;
+    font-size: 24px;
+    margin-bottom: 8px;
+    color: var(--text-color);
+}
+
+.trajectory-header .subtitle {
+    font-size: 16px;
+    color: #6e6e80;
+    margin: 0;
+}
+
+.trajectory-visualization {
+    margin-bottom: 40px;
+}
+
+.timeline {
+    position: relative;
+    padding: 10px 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 30px;
+    width: 2px;
+    background-color: #e5e5e5;
+}
+
+.timeline-event {
+    position: relative;
+    margin-bottom: 30px;
+    padding-left: 80px;
+}
+
+.event-marker {
+    position: absolute;
+    left: 16px;
+    top: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.event-marker.completed {
+    background-color: var(--primary-color);
+}
+
+.event-marker.current {
+    background-color: #ff9900;
+    box-shadow: 0 0 0 4px rgba(255, 153, 0, 0.2);
+}
+
+.marker-number {
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.event-content {
+    background-color: #f7f7f8;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.event-content h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+.event-content p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+
+.event-time {
+    font-size: 12px;
+    color: #6e6e80;
+}
+
+.trajectory-metrics {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+}
+
+.metric-card {
+    background-color: #f7f7f8;
+    border-radius: 8px;
+    padding: 16px;
+    flex: 1;
+    margin: 0 10px;
+    text-align: center;
+}
+
+.metric-card h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+.metric-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.trajectory-insights {
+    margin-top: 30px;
+}
+
+.trajectory-insights h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    color: var(--text-color);
+}
+
+.insight-item {
+    display: flex;
+    margin-bottom: 20px;
+    background-color: #f7f7f8;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.insight-item i {
+    font-size: 24px;
+    color: var(--primary-color);
+    margin-right: 16px;
+    align-self: flex-start;
+    margin-top: 4px;
+}
+
+.insight-content {
+    flex: 1;
+}
+
+.insight-content h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+}
+
+.insight-content p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+
+/* Styling for the expandable message boxes */
+.message-box { 
+    padding: 15px; 
+    margin: 15px 0; 
+    border-radius: 8px; 
+    background-color: #f0f0ff; /* Light purple background */
+    border-left: 4px solid var(--primary-color); /* Purple accent on the left */
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative; /* For positioning the expand indicator */
+}
+
+.message-box:hover {
+    box-shadow: 3px 3px 15px rgba(0, 0, 0, 0.15);
+    background-color: #f5f0ff; /* Slightly different color on hover */
+}
+
+/* Style for the expand/collapse indicator */
+.expand-indicator {
+    position: absolute;
+    right: 15px;
+    top: 15px;
+    color: var(--primary-color);
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.expand-indicator:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+.message-header {
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+}
+
+.message-type {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.message-time {
+    color: #777;
+    font-size: 0.9em;
+}
+
+.content-collapsed {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-height: 1.5em; /* slightly taller for better readability */
+    padding-right: 30px; /* make space for expand icon */
+    font-style: italic;
+    color: #666;
+}
+
+/* Improve code display inside message boxes */
+pre {
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}

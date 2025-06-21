@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-your-secret-key-here}
+      - DATABASE_URL=postgresql://postgres:password@db:5432/morfis
+      - BACKEND_URL=${BACKEND_URL:-https://morfis.ngrok.app}
+      - FLASK_ENV=production
+    depends_on:
+      - db
+    volumes:
+      - ./static:/app/static
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=morfis
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data: 
