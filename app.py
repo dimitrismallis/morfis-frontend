@@ -36,56 +36,62 @@ db = SQLAlchemy(app)
 backend_url = "https://morfis.ngrok.app"
 
 # Default design types for fallback
-DEFAULT_DESIGN_TYPES = [{
-    "id": "empty",
-    "name": "Empty Design",
-    "description": "Start with a blank design"
-}, {
-    "id": "coffee_table",
-    "name": "Coffee Table",
-    "description": "Start with a coffee table design"
-}]
+DEFAULT_DESIGN_TYPES = [
+    {"id": "empty", "name": "Empty Design", "description": "Start with a blank design"},
+    {
+        "id": "coffee_table",
+        "name": "Coffee Table",
+        "description": "Start with a coffee table design",
+    },
+]
+
 
 def get_session_id():
     """Get or create a unique session ID for the current user."""
     # Check if client requested a tab-specific session
-    tab_id = request.headers.get('X-Tab-ID')
-    
+    tab_id = request.headers.get("X-Tab-ID")
+
     if tab_id:
         # Use tab-specific session ID
-        session_key = f'tab_session_{tab_id}'
+        session_key = f"tab_session_{tab_id}"
         if session_key not in session:
             session[session_key] = str(uuid.uuid4())
-            
+
             # Store session info in database for tracking (optional for debugging)
             try:
                 from models import UserSession
+
                 user_session = UserSession(
                     session_id=session[session_key],
                     user_ip=request.remote_addr,
-                    user_agent=request.headers.get('User-Agent', '')
+                    user_agent=request.headers.get("User-Agent", ""),
                 )
                 db.session.add(user_session)
                 db.session.commit()
-                logging.info(f"Created new tab session: {session[session_key]} for tab: {tab_id}")
+                logging.info(
+                    f"Created new tab session: {session[session_key]} for tab: {tab_id}"
+                )
             except Exception as e:
                 # Gracefully handle database errors for debugging
                 logging.debug(f"Database not available for session tracking: {str(e)}")
-                logging.info(f"Created new tab session (no DB): {session[session_key]} for tab: {tab_id}")
-        
+                logging.info(
+                    f"Created new tab session (no DB): {session[session_key]} for tab: {tab_id}"
+                )
+
         return session[session_key]
     else:
         # Use browser-wide session (default behavior)
-        if 'session_id' not in session:
-            session['session_id'] = str(uuid.uuid4())
-            
+        if "session_id" not in session:
+            session["session_id"] = str(uuid.uuid4())
+
             # Store session info in database for tracking (optional for debugging)
             try:
                 from models import UserSession
+
                 user_session = UserSession(
-                    session_id=session['session_id'],
+                    session_id=session["session_id"],
                     user_ip=request.remote_addr,
-                    user_agent=request.headers.get('User-Agent', '')
+                    user_agent=request.headers.get("User-Agent", ""),
                 )
                 db.session.add(user_session)
                 db.session.commit()
@@ -93,16 +99,20 @@ def get_session_id():
             except Exception as e:
                 # Gracefully handle database errors for debugging
                 logging.debug(f"Database not available for session tracking: {str(e)}")
-                logging.info(f"Created new browser session (no DB): {session['session_id']}")
-        
-        return session['session_id']
+                logging.info(
+                    f"Created new browser session (no DB): {session['session_id']}"
+                )
+
+        return session["session_id"]
+
 
 def update_session_activity():
     """Update the current session's last activity timestamp."""
     try:
-        session_id = session.get('session_id')
+        session_id = session.get("session_id")
         if session_id:
             from models import UserSession
+
             user_session = UserSession.query.filter_by(session_id=session_id).first()
             if user_session:
                 user_session.update_activity()
@@ -110,50 +120,73 @@ def update_session_activity():
         # Gracefully handle database errors for debugging
         logging.debug(f"Database not available for session activity update: {str(e)}")
 
-def make_backend_request(endpoint, method='GET', data=None):
+
+def make_backend_request(endpoint, method="GET", data=None):
     """Make a request to the backend with session ID included."""
     session_id = get_session_id()
-    
+
     # Update session activity
     update_session_activity()
-    
+
     url = f"{backend_url}/{endpoint}"
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'X-Session-ID': session_id
-    }
-    
-    if method == 'POST':
+
+    headers = {"Content-Type": "application/json", "X-Session-ID": session_id}
+
+    if method == "POST":
         if data is None:
             data = {}
-        data['session_id'] = session_id
+        data["session_id"] = session_id
         return requests.post(url, json=data, headers=headers)
     else:
-        params = {'session_id': session_id}
+        params = {"session_id": session_id}
         return requests.get(url, params=params, headers=headers)
 
 
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/generate', methods=['POST'])
+@app.route("/step-viewer")
+def step_viewer():
+    return render_template("step_viewer.html")
+
+
+@app.route("/static/cadmodels/<filename>")
+def serve_cad_file(filename):
+    """Serve CAD files with proper CORS headers for 3D viewer"""
+    from flask import send_from_directory
+
+    response = send_from_directory("static/cadmodels", filename)
+
+    # Add CORS headers to allow the 3D viewer to access the file
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+
+    # Set proper content type for STEP files
+    if filename.lower().endswith(".step") or filename.lower().endswith(".stp"):
+        response.headers["Content-Type"] = "application/step"
+
+    return response
+
+
+@app.route("/generate", methods=["POST"])
 def generate_cad():
     try:
-        command = request.json.get('command', '')
+        command = request.json.get("command", "")
 
         # Store the user's command in the current trajectory
         # This is for displaying in the trajectory view
         update_trajectory_with_user_command(command)
 
-        response = make_backend_request('process-prompt', 'POST', {"prompt": command})
+        response = make_backend_request("process-prompt", "POST", {"prompt": command})
         response_data = response.json()
 
         # Extract response text and STL data
         answer_text = response_data.get(
-            "response", "There was an error processing your request.")
+            "response", "There was an error processing your request."
+        )
         stl_data_hex = response_data.get("stl_data")
 
         # Update trajectory with the AI's response
@@ -163,9 +196,8 @@ def generate_cad():
         if not stl_data_hex:
             logging.info("No STL data received from backend")
             response = {
-                'message': answer_text,
-                'reset_viewer':
-                True  # Signal to the frontend to reset/clear the 3D viewer
+                "message": answer_text,
+                "reset_viewer": True,  # Signal to the frontend to reset/clear the 3D viewer
             }
             return jsonify(response)
 
@@ -184,85 +216,80 @@ def generate_cad():
             if not os.path.exists(stl_file_path):
                 logging.error(f"STL file not found at path: {stl_file_path}")
                 response = {
-                    'message': answer_text,
-                    'reset_viewer':
-                    True  # Signal to reset viewer if file couldn't be saved
+                    "message": answer_text,
+                    "reset_viewer": True,  # Signal to reset viewer if file couldn't be saved
                 }
             else:
                 response = {
-                    'message': answer_text,
-                    'model': {
-                        'type': 'stl',
-                        'path': stl_file_path
-                    }
+                    "message": answer_text,
+                    "model": {"type": "stl", "path": stl_file_path},
                 }
         except Exception as e:
             logging.error(f"Error processing STL data: {str(e)}")
             response = {
-                'message': answer_text,
-                'reset_viewer':
-                True  # Signal to reset viewer if STL processing failed
+                "message": answer_text,
+                "reset_viewer": True,  # Signal to reset viewer if STL processing failed
             }
         return jsonify(response)
     except Exception as e:
         logging.error(f"Error processing command: {str(e)}")
-        return jsonify({'error': 'Failed to process command'}), 500
+        return jsonify({"error": "Failed to process command"}), 500
 
 
 # Global variable to store the current trajectory data
 # In a production app, this would be stored in a database
-current_trajectory = {'messages': []}
+current_trajectory = {"messages": []}
 
 
 def update_trajectory_with_user_command(command):
     """Add a user command to the trajectory data."""
     timestamp = datetime.datetime.now().isoformat()
-    current_trajectory['messages'].append({
-        'type': 'user',
-        'content': command,
-        'timestamp': timestamp
-    })
+    current_trajectory["messages"].append(
+        {"type": "user", "content": command, "timestamp": timestamp}
+    )
 
 
 def update_trajectory_with_ai_response(response):
     """Add an AI response to the trajectory data."""
     timestamp = datetime.datetime.now().isoformat()
-    current_trajectory['messages'].append({
-        'type': 'system',
-        'content': response,
-        'timestamp': timestamp
-    })
+    current_trajectory["messages"].append(
+        {"type": "system", "content": response, "timestamp": timestamp}
+    )
 
 
-@app.route('/new_design', methods=['POST'])
+@app.route("/new_design", methods=["POST"])
 def new_design():
     try:
-        design_type = request.json.get('type', 'empty')
+        design_type = request.json.get("type", "empty")
         logging.debug(f"Starting new design with type: {design_type}")
 
         # Reset the trajectory data when starting a new design
         global current_trajectory
-        current_trajectory = {'messages': []}
+        current_trajectory = {"messages": []}
 
         # Format the command for the trajectory
-        formatted_type = design_type.replace('_', ' ')
+        formatted_type = design_type.replace("_", " ")
         command = f"Create new {formatted_type} design"
 
         # Store this command in the trajectory
         update_trajectory_with_user_command(command)
 
         # Call the backend API
-        response = make_backend_request('reset', 'POST', {"prompt": design_type})
+        response = make_backend_request("reset", "POST", {"prompt": design_type})
 
         if not response.ok:
             logging.error(
-                f"Backend API error: {response.status_code} - {response.text}")
-            return jsonify({
-                'status':
-                'error',
-                'message':
-                f"Failed to initialize {design_type} design"
-            }), 500
+                f"Backend API error: {response.status_code} - {response.text}"
+            )
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Failed to initialize {design_type} design",
+                    }
+                ),
+                500,
+            )
 
         response_data = response.json()
         logging.debug(f"Response data: {response_data}")
@@ -271,10 +298,12 @@ def new_design():
         answer_text = response_data.get("response")
 
         # Use the backend's message if available, otherwise generate a fallback message
-        if not answer_text or answer_text == 'Completed':
+        if not answer_text or answer_text == "Completed":
             # Generate a fallback welcome message
             if design_type == "empty":
-                answer_text = "Starting with a blank canvas. What would you like to create?"
+                answer_text = (
+                    "Starting with a blank canvas. What would you like to create?"
+                )
             else:
                 # Format the design type for display (e.g., coffee_table -> coffee table)
                 answer_text = f"Starting with a {formatted_type} design. You can modify it or add features."
@@ -283,8 +312,8 @@ def new_design():
         update_trajectory_with_ai_response(answer_text)
 
         # Check if we need an early return (no STL data or special cases)
-        if response_data and response_data.get('response') == 'Completed':
-            return jsonify({'status': 'success', 'message': answer_text})
+        if response_data and response_data.get("response") == "Completed":
+            return jsonify({"status": "success", "message": answer_text})
 
         stl_data_hex = response_data.get("stl_data")
 
@@ -301,37 +330,37 @@ def new_design():
 
             if not os.path.exists(stl_file_path):
                 logging.error(f"STL file not found at path: {stl_file_path}")
-                return jsonify({'error': 'STL file not found'}), 404
+                return jsonify({"error": "STL file not found"}), 404
 
-            return jsonify({
-                'status': 'success',
-                'message': answer_text,
-                'model': {
-                    'type': 'stl',
-                    'path': stl_file_path
+            return jsonify(
+                {
+                    "status": "success",
+                    "message": answer_text,
+                    "model": {"type": "stl", "path": stl_file_path},
                 }
-            })
+            )
 
-        return jsonify({'status': 'success', 'message': answer_text})
+        return jsonify({"status": "success", "message": answer_text})
 
     except Exception as e:
         logging.error(f"Error starting new design: {str(e)}")
-        return jsonify({'error': 'Failed to start new design'}), 500
+        return jsonify({"error": "Failed to start new design"}), 500
 
 
-@app.route('/api/config', methods=['GET'])
+@app.route("/api/config", methods=["GET"])
 def get_app_config():
     """Return app configuration data like available design types"""
     try:
         # Fetch design types from backend
-        response = make_backend_request('init')
+        response = make_backend_request("init")
         if response.ok:
             response_data = response.json()
             # The backend returns a list of design types, welcome message, and possibly STL data
-            backend_design_types = response_data.get('design_types', [])
+            backend_design_types = response_data.get("design_types", [])
             welcome_message = response_data.get(
-                'message', 'Welcome to Morfis - AI CAD Agent')
-            stl_data_hex = response_data.get('stl_data')
+                "message", "Welcome to Morfis - AI CAD Agent"
+            )
+            stl_data_hex = response_data.get("stl_data")
 
             logging.debug(f"Backend init response: {response_data}")
 
@@ -341,20 +370,19 @@ def get_app_config():
             # Add each design from the backend with proper formatting
             for design_type in backend_design_types:
                 # Format the name for display (e.g., "coffee_table" -> "Coffee Table")
-                display_name = design_type.replace('_', ' ').title()
-                formatted_design_types.append({
-                    "id":
-                    design_type,
-                    "name":
-                    display_name,
-                    "description":
-                    f"Start with a {design_type.replace('_', ' ')} design"
-                })
+                display_name = design_type.replace("_", " ").title()
+                formatted_design_types.append(
+                    {
+                        "id": design_type,
+                        "name": display_name,
+                        "description": f"Start with a {design_type.replace('_', ' ')} design",
+                    }
+                )
 
             # Create the base configuration structure
             config = {
-                'design_types': formatted_design_types,
-                'welcome_message': welcome_message
+                "design_types": formatted_design_types,
+                "welcome_message": welcome_message,
             }
 
             # Process STL data if available
@@ -364,8 +392,7 @@ def get_app_config():
                     stl_binary_data = bytes.fromhex(stl_data_hex)
 
                     save_dir = "static/cadmodels"
-                    timestamp = datetime.datetime.now().strftime(
-                        "%Y%m%d_%H%M%S")
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                     stl_file_path = os.path.join(save_dir, "model.stl")
 
                     with open(stl_file_path, "wb") as stl_file:
@@ -373,13 +400,9 @@ def get_app_config():
 
                     if os.path.exists(stl_file_path):
                         # Add the model information to the configuration
-                        config['model'] = {
-                            'type': 'stl',
-                            'path': stl_file_path
-                        }
+                        config["model"] = {"type": "stl", "path": stl_file_path}
                     else:
-                        logging.error(
-                            f"STL file not found at path: {stl_file_path}")
+                        logging.error(f"STL file not found at path: {stl_file_path}")
                 except Exception as e:
                     logging.error(f"Error processing STL data: {str(e)}")
 
@@ -387,23 +410,25 @@ def get_app_config():
         else:
             # Fallback to default if backend request fails
             config = {
-                'design_types': DEFAULT_DESIGN_TYPES,
-                'welcome_message': 'Welcome to Morfis - AI CAD Agent'
+                "design_types": DEFAULT_DESIGN_TYPES,
+                "welcome_message": "Welcome to Morfis - AI CAD Agent",
             }
             return jsonify(config)
     except Exception as e:
         logging.error(f"Error fetching app configuration: {str(e)}")
         # Return default design types as fallback
-        return jsonify({
-            'design_types': DEFAULT_DESIGN_TYPES,
-            'welcome_message': 'Welcome to Morfis - AI CAD Agent'
-        })
+        return jsonify(
+            {
+                "design_types": DEFAULT_DESIGN_TYPES,
+                "welcome_message": "Welcome to Morfis - AI CAD Agent",
+            }
+        )
 
 
 # Route removed - trajectory is now handled via the API endpoint and modal UI
 
 
-@app.route('/api/trajectory-html')
+@app.route("/api/trajectory-html")
 def get_trajectory_html():
     """Return trajectory data as HTML for direct embedding."""
     try:
@@ -411,7 +436,7 @@ def get_trajectory_html():
         backend_data = None
 
         try:
-            response = make_backend_request('trajectory')
+            response = make_backend_request("trajectory")
             if response.ok:
                 # Backend directly returns HTML content
                 response_data = response.json()
@@ -420,7 +445,7 @@ def get_trajectory_html():
             logging.warning(f"Error fetching from backend: {str(e)}")
 
         # Fallback: Use local trajectory data if backend fails
-        if current_trajectory['messages']:
+        if current_trajectory["messages"]:
             return generate_trajectory_html(current_trajectory)
 
         # If no data is available
@@ -440,18 +465,18 @@ def generate_trajectory_html(trajectory_data):
     html += "</div>"
 
     # Check if we have trajectory data
-    if trajectory_data.get('error'):
+    if trajectory_data.get("error"):
         html += f"<div class='error-message'><i class='fas fa-exclamation-circle'></i><p>{trajectory_data['error']}</p></div>"
-    elif 'messages' in trajectory_data:
+    elif "messages" in trajectory_data:
         # If we have messages, display them as message boxes
-        messages = trajectory_data.get('messages', [])
+        messages = trajectory_data.get("messages", [])
         html += "<div class='message-list'>"
 
         for idx, message in enumerate(messages):
             # Determine message type (system, user, etc.)
-            msg_type = message.get('type', 'system')
-            msg_content = message.get('content', '')
-            msg_time = message.get('timestamp', '')
+            msg_type = message.get("type", "system")
+            msg_content = message.get("content", "")
+            msg_time = message.get("timestamp", "")
 
             html += f"<div class='message-box {msg_type}-message'>"
             html += f"<div class='message-header'><span class='message-type'>{msg_type.capitalize()}</span>"
@@ -460,7 +485,9 @@ def generate_trajectory_html(trajectory_data):
             html += "</div>"
 
             # Make the content collapsible
-            html += f"<div class='message-content content-collapsed'>{msg_content}</div>"
+            html += (
+                f"<div class='message-content content-collapsed'>{msg_content}</div>"
+            )
             html += "</div>"
 
         html += "</div>"
@@ -472,7 +499,7 @@ def generate_trajectory_html(trajectory_data):
     return html
 
 
-@app.route('/api/trajectory')
+@app.route("/api/trajectory")
 def get_trajectory():
     """Return trajectory data as JSON."""
     try:
@@ -480,14 +507,14 @@ def get_trajectory():
         url = f"{backend_url}/trajectory"
 
         try:
-            response = make_backend_request('trajectory')
+            response = make_backend_request("trajectory")
             if response.ok:
                 return response.json()
         except Exception as e:
             logging.warning(f"Error fetching from backend: {str(e)}")
 
         # Fallback: Use local trajectory data if backend connection fails
-        if current_trajectory['messages']:
+        if current_trajectory["messages"]:
             return jsonify(current_trajectory)
 
         # If no data is available
@@ -498,66 +525,78 @@ def get_trajectory():
         return jsonify({"error": f"Error preparing trajectory data: {str(e)}"})
 
 
-@app.route('/save_design', methods=['POST'])
+@app.route("/save_design", methods=["POST"])
 def save_design():
     try:
-        design_name = request.json.get('name', '')
+        design_name = request.json.get("name", "")
         if not design_name:
-            return jsonify({
-                'status': 'error',
-                'message': 'Design name is required'
-            }), 400
+            return (
+                jsonify({"status": "error", "message": "Design name is required"}),
+                400,
+            )
 
         # Send design name to backend
         try:
-            response = make_backend_request('save_design', 'POST', {
-                "prompt": design_name,
-            })
+            response = make_backend_request(
+                "save_design",
+                "POST",
+                {
+                    "prompt": design_name,
+                },
+            )
 
             if response.ok:
                 logging.info(f"Design saved to backend: {design_name}")
-                return jsonify({
-                    'status':
-                    'success',
-                    'message':
-                    f'Design "{design_name}" saved successfully'
-                })
+                return jsonify(
+                    {
+                        "status": "success",
+                        "message": f'Design "{design_name}" saved successfully',
+                    }
+                )
             else:
                 error_message = f"Backend returned error: {response.status_code}"
                 if response.text:
                     try:
                         error_data = response.json()
-                        if 'message' in error_data:
-                            error_message = error_data['message']
+                        if "message" in error_data:
+                            error_message = error_data["message"]
                     except:
-                        error_message = response.text[:
-                                                      100]  # Truncate long error messages
+                        error_message = response.text[
+                            :100
+                        ]  # Truncate long error messages
 
-                logging.error(
-                    f"Error saving design to backend: {error_message}")
-                return jsonify({
-                    'status':
-                    'error',
-                    'message':
-                    f'Failed to save design: {error_message}'
-                }), response.status_code
+                logging.error(f"Error saving design to backend: {error_message}")
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": f"Failed to save design: {error_message}",
+                        }
+                    ),
+                    response.status_code,
+                )
 
         except Exception as e:
             logging.error(f"Error connecting to backend: {str(e)}")
-            return jsonify({
-                'status': 'error',
-                'message': f'Failed to connect to backend: {str(e)}'
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Failed to connect to backend: {str(e)}",
+                    }
+                ),
+                500,
+            )
 
     except Exception as e:
         logging.error(f"Error processing save design request: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': f'Failed to save design: {str(e)}'
-        }), 500
+        return (
+            jsonify({"status": "error", "message": f"Failed to save design: {str(e)}"}),
+            500,
+        )
 
 
-@app.route('/api/waitlist', methods=['POST'])
+@app.route("/api/waitlist", methods=["POST"])
 def submit_waitlist():
     """Handle waitlist submission by forwarding to backend."""
     print("Waitlist submission received!")
@@ -566,74 +605,97 @@ def submit_waitlist():
         data = request.json
         print(f"Waitlist data: {data}")
         # Validate required fields
-        required_fields = ['firstName', 'lastName', 'email', 'consent']
+        required_fields = ["firstName", "lastName", "email", "consent"]
         for field in required_fields:
             if field not in data or not data[field]:
-                return jsonify({
-                    'success': False,
-                    'message': f'Missing required field: {field}'
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": f"Missing required field: {field}",
+                        }
+                    ),
+                    400,
+                )
 
         # Validate consent
-        if not data['consent']:
-            return jsonify({
-                'success': False,
-                'message': 'You must consent to the data collection'
-            }), 400
+        if not data["consent"]:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "You must consent to the data collection",
+                    }
+                ),
+                400,
+            )
 
         # Forward the data to backend
         print(f"Sending waitlist data to backend with session")
         try:
-            response = make_backend_request('waitlist', 'POST', data)
-            
+            response = make_backend_request("waitlist", "POST", data)
+
             if response.ok:
-                return jsonify({
-                    'success': True,
-                    'message': 'Thank you for joining our waitlist!'
-                }), 201
+                return (
+                    jsonify(
+                        {
+                            "success": True,
+                            "message": "Thank you for joining our waitlist!",
+                        }
+                    ),
+                    201,
+                )
             else:
                 error_message = "Failed to add to waitlist"
                 if response.text:
                     try:
                         error_data = response.json()
-                        if 'message' in error_data:
-                            error_message = error_data['message']
+                        if "message" in error_data:
+                            error_message = error_data["message"]
                     except:
                         error_message = response.text[:100]
-                
-                return jsonify({
-                    'success': False,
-                    'message': error_message
-                }), response.status_code
+
+                return (
+                    jsonify({"success": False, "message": error_message}),
+                    response.status_code,
+                )
         except Exception as e:
             logging.error(f"Error connecting to backend: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'Connection error. Please try again later.'
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": "Connection error. Please try again later.",
+                    }
+                ),
+                500,
+            )
     except Exception as e:
         logging.error(f"Waitlist submission error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'An unexpected error occurred'
-        }), 500
+        return (
+            jsonify({"success": False, "message": "An unexpected error occurred"}),
+            500,
+        )
 
 
-@app.route('/rollback', methods=['POST'])
+@app.route("/rollback", methods=["POST"])
 def rollback():
     try:
-        message_index = request.json.get('message_index')
+        message_index = request.json.get("message_index")
         print(message_index)
-        response = make_backend_request('rollback', 'POST', {"prompt": str(message_index)})
+        response = make_backend_request(
+            "rollback", "POST", {"prompt": str(message_index)}
+        )
         response_data = response.json()
 
         # Get the response message if available
-        response_message = response_data.get("response",
-                                             "Rolled back to previous state")
+        response_message = response_data.get(
+            "response", "Rolled back to previous state"
+        )
         stl_data_hex = response_data.get("stl_data")
 
         # Create basic response with at least a status and message
-        result = {'status': 'success', 'message': response_message}
+        result = {"status": "success", "message": response_message}
 
         # If we have STL data, process it
         if stl_data_hex:
@@ -649,22 +711,21 @@ def rollback():
 
             if os.path.exists(stl_file_path):
                 # Add model information to the response
-                result['model'] = {'type': 'stl', 'path': stl_file_path}
+                result["model"] = {"type": "stl", "path": stl_file_path}
             else:
                 logging.error(f"STL file not found at path: {stl_file_path}")
         else:
             # No STL data, but this is not an error - just add a note to the result
-            logging.info(
-                "No STL data in rollback response - will reset 3D view")
-            result['reset_viewer'] = True
+            logging.info("No STL data in rollback response - will reset 3D view")
+            result["reset_viewer"] = True
 
         return jsonify(result)
     except Exception as e:
         logging.error(f"Error processing rollback: {str(e)}")
-        return jsonify({'error': 'Failed to process rollback'}), 500
+        return jsonify({"error": "Failed to process rollback"}), 500
 
 
-@app.route('/api/sessions', methods=['GET'])
+@app.route("/api/sessions", methods=["GET"])
 def get_session_stats():
     """Return session statistics and current session info."""
     try:
@@ -674,14 +735,14 @@ def get_session_stats():
 
         # Get current session details
         current_session_id = get_session_id()
-        tab_id = request.headers.get('X-Tab-ID')
-        
+        tab_id = request.headers.get("X-Tab-ID")
+
         # Get total active sessions
         try:
             active_sessions = UserSession.query.filter_by(is_active=True).count()
         except:
             active_sessions = 0
-        
+
         # Get recent sessions (last 24 hours)
         try:
             cutoff_time = datetime.utcnow() - timedelta(hours=24)
@@ -690,18 +751,21 @@ def get_session_stats():
             ).count()
         except:
             recent_sessions = 0
-        
-        return jsonify({
-            'current_session_id': current_session_id[:8] + '...',  # Partial ID for privacy
-            'tab_id': tab_id,
-            'session_type': 'tab-specific' if tab_id else 'browser-wide',
-            'active_sessions': active_sessions,
-            'recent_sessions': recent_sessions,
-            'message': f"Session management working - {'tab-specific' if tab_id else 'browser-wide'} session active"
-        })
+
+        return jsonify(
+            {
+                "current_session_id": current_session_id[:8]
+                + "...",  # Partial ID for privacy
+                "tab_id": tab_id,
+                "session_type": "tab-specific" if tab_id else "browser-wide",
+                "active_sessions": active_sessions,
+                "recent_sessions": recent_sessions,
+                "message": f"Session management working - {'tab-specific' if tab_id else 'browser-wide'} session active",
+            }
+        )
     except Exception as e:
         logging.error(f"Error getting session stats: {str(e)}")
-        return jsonify({'error': 'Failed to get session statistics'}), 500
+        return jsonify({"error": "Failed to get session statistics"}), 500
 
 
 if __name__ == "__main__":

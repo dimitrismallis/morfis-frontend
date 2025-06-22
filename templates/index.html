@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/STLLoader.js"></script>
 </head>
-<body>    
+
+<body>
     <div class="container-fluid h-100">
         <div class="row h-100">
             <!-- Chat Panel -->
@@ -30,8 +32,8 @@
                 <div class="input-container">
                     <form id="commandForm" class="command-form">
                         <div class="input-container-wrapper">
-                            <textarea id="commandInput" class="form-control auto-expand" 
-                                   placeholder="Describe your design..." required rows="1"></textarea>
+                            <textarea id="commandInput" class="form-control auto-expand"
+                                placeholder="Describe your design..." required rows="1"></textarea>
                             <button type="submit" class="btn btn-primary send-button">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
@@ -50,16 +52,22 @@
                         <button class="btn custom-btn" id="trajectoryBtn">
                             <i class="fas fa-chart-line"></i>Trajectory
                         </button>
-                        
+
                         <!-- Save Design button -->
                         <button class="btn custom-btn" id="saveDesignBtn">
                             <i class="fas fa-save"></i>Save Design
                         </button>
+
+                        <!-- 3D STEP Viewer button -->
+                        <button class="btn custom-btn" id="stepViewerBtn">
+                            <i class="fas fa-cube"></i>3D Preview
+                        </button>
                     </div>
-                    
+
                     <!-- New Design dropdown on right -->
                     <div class="dropdown">
-                        <button id="newDesignBtn" class="btn custom-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button id="newDesignBtn" class="btn custom-btn dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-plus-circle"></i>New Design
                         </button>
                         <ul class="dropdown-menu" id="designDropdown">
@@ -69,23 +77,28 @@
                         </ul>
                     </div>
                 </div>
-                
+
                 <!-- Color Selector (positioned directly below the top buttons) -->
                 <div class="color-selector-container top-positioned">
                     <div class="color-selector-wrapper">
                         <div class="color-selector-label">3D Print Color</div>
                         <div class="color-selector">
-                            <div class="color-option active" data-color="#9146FF" style="background-color: #9146FF;" title="Purple"></div>
-                            <div class="color-option" data-color="#FF4136" style="background-color: #FF4136;" title="Red"></div>
-                            <div class="color-option" data-color="#2ECC40" style="background-color: #2ECC40;" title="Green"></div>
-                            <div class="color-option" data-color="#0074D9" style="background-color: #0074D9;" title="Blue"></div>
-                            <div class="color-option" data-color="#FF851B" style="background-color: #FF851B;" title="Orange"></div>
+                            <div class="color-option active" data-color="#9146FF" style="background-color: #9146FF;"
+                                title="Purple"></div>
+                            <div class="color-option" data-color="#FF4136" style="background-color: #FF4136;"
+                                title="Red"></div>
+                            <div class="color-option" data-color="#2ECC40" style="background-color: #2ECC40;"
+                                title="Green"></div>
+                            <div class="color-option" data-color="#0074D9" style="background-color: #0074D9;"
+                                title="Blue"></div>
+                            <div class="color-option" data-color="#FF851B" style="background-color: #FF851B;"
+                                title="Orange"></div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div id="modelViewer"></div>
-                
+
                 <!-- Join Waitlist button -->
                 <div class="waitlist-button-container">
                     <button class="btn waitlist-button" id="joinWaitlistBtn">Join Morfis Waitlist</button>
@@ -95,7 +108,8 @@
     </div>
 
     <!-- Trajectory Modal -->
-    <div class="modal fade" id="trajectoryModal" tabindex="-1" aria-labelledby="trajectoryModalLabel" aria-hidden="true" data-bs-backdrop="false">
+    <div class="modal fade" id="trajectoryModal" tabindex="-1" aria-labelledby="trajectoryModalLabel" aria-hidden="true"
+        data-bs-backdrop="false">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -114,9 +128,10 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Save Design Modal -->
-    <div class="modal fade" id="saveDesignModal" tabindex="-1" aria-labelledby="saveDesignModalLabel" aria-hidden="true">
+    <div class="modal fade" id="saveDesignModal" tabindex="-1" aria-labelledby="saveDesignModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -127,10 +142,12 @@
                     <form id="saveDesignForm">
                         <div class="mb-3">
                             <label for="designName" class="form-label">Design Name</label>
-                            <input type="text" class="form-control" id="designName" placeholder="Enter a name for your design" required>
-                            <div class="form-text">Choose a descriptive name to help you identify this design later.</div>
+                            <input type="text" class="form-control" id="designName"
+                                placeholder="Enter a name for your design" required>
+                            <div class="form-text">Choose a descriptive name to help you identify this design later.
+                            </div>
                         </div>
-                        
+
                         <div id="saveDesignStatus" class="mt-3 d-none">
                             <!-- Status messages will appear here -->
                         </div>
@@ -155,5 +172,7 @@
     <script src="/static/js/save_design.js"></script>
     <script src="/static/js/color_selector.js"></script>
     <script src="/static/js/waitlist.js"></script>
+    <script src="/static/js/step_preview.js"></script>
 </body>
+
 </html>

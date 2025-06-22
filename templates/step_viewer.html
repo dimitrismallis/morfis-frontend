@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D STEP Model Viewer - Morfis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .viewer-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .viewer-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        .viewer-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #f8f9fa;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .control-btn:hover {
+            background: #e9ecef;
+        }
+
+        .control-btn.primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .control-btn.primary:hover {
+            background: #0056b3;
+        }
+
+        .control-btn.active {
+            background: #28a745;
+            color: white;
+        }
+
+        .control-btn.active:hover {
+            background: #218838;
+        }
+
+        .viewer-content {
+            height: 100vh;
+            width: 100vw;
+            padding-top: 60px;
+        }
+
+        #model-viewer {
+            width: 100%;
+            height: calc(100vh - 60px);
+        }
+
+        .error-container {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+
+        .error-container i {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        #viewer {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+        }
+
+        /* 3D Orientation Axis Styles */
+        .orientation-axis {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            box-shadow: none;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 11px;
+            overflow: hidden;
+        }
+
+        .axis-cube {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            transform-style: preserve-3d;
+            transform: rotateX(-15deg) rotateY(25deg);
+            transition: transform 0.3s ease;
+        }
+
+        .axis-face {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #adb5bd;
+            font-size: 12px;
+            font-weight: 700;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .axis-face.front {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            transform: translateZ(30px);
+        }
+
+        .axis-face.back {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            transform: translateZ(-30px) rotateY(180deg);
+        }
+
+        .axis-face.right {
+            background: linear-gradient(135deg, #dc3545, #e74c3c);
+            color: white;
+            transform: rotateY(-90deg) translateZ(30px);
+        }
+
+        .axis-face.left {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            transform: rotateY(90deg) translateZ(30px);
+        }
+
+        .axis-face.top {
+            background: linear-gradient(135deg, #ffc107, #ffb300);
+            color: #212529;
+            transform: rotateX(-90deg) translateZ(30px);
+        }
+
+        .axis-face.bottom {
+            background: linear-gradient(135deg, #6f42c1, #5a2d91);
+            color: white;
+            transform: rotateX(90deg) translateZ(30px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="viewer-container">
+        <!-- 3D Orientation Axis -->
+        <div class="orientation-axis">
+            <div class="axis-cube" id="axis-cube">
+                <div class="axis-face front">FRONT</div>
+                <div class="axis-face back">BACK</div>
+                <div class="axis-face right">RIGHT</div>
+                <div class="axis-face left">LEFT</div>
+                <div class="axis-face top">TOP</div>
+                <div class="axis-face bottom">BOTTOM</div>
+            </div>
+        </div>
+
+        <div id="viewer"></div>
+    </div>
+
+    <!-- Load Online3DViewer dependencies -->
+    <script>
+        let viewer;
+
+        // Load the Online3DViewer library dynamically with better error handling
+        function loadOnline3DViewer() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                // Try multiple CDN sources for better reliability
+                const cdnUrls = [
+                    '/static/js/libs/o3dv.min.js',
+                    'https://unpkg.com/online-3d-viewer@0.16.0/build/engine/o3dv.min.js',
+                    'https://cdn.jsdelivr.net/npm/online-3d-viewer@0.16.0/build/engine/o3dv.min.js'
+                ];
+
+                let urlIndex = 0;
+
+                function tryNextUrl() {
+                    if (urlIndex >= cdnUrls.length) {
+                        reject(new Error('All CDN sources failed'));
+                        return;
+                    }
+
+                    script.src = cdnUrls[urlIndex];
+                    console.log(`🔄 Trying CDN ${urlIndex + 1}: ${script.src}`);
+                    urlIndex++;
+                }
+
+                script.onload = () => {
+                    console.log('✅ Online3DViewer library loaded successfully');
+                    // Wait a moment for the library to fully initialize
+                    setTimeout(() => {
+                        if (typeof OV !== 'undefined') {
+                            console.log('✅ OV object is available');
+                            resolve();
+                        } else {
+                            console.log('❌ OV object not found, trying next CDN...');
+                            tryNextUrl();
+                        }
+                    }, 1000);
+                };
+
+                script.onerror = () => {
+                    console.log(`❌ Failed to load from: ${script.src}`);
+                    tryNextUrl();
+                };
+
+                // Start with the first URL
+                tryNextUrl();
+                document.head.appendChild(script);
+            });
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', async () => {
+            console.log('🚀 Starting 3D viewer initialization...');
+            console.log('🌐 Current URL:', window.location.href);
+
+            try {
+                // Load the library first
+                await loadOnline3DViewer();
+
+                // Then initialize the viewer
+                await initializeViewer();
+
+            } catch (error) {
+                console.error('❌ Failed to initialize 3D viewer:', error);
+                console.error('❌ Error details:', error.stack || error.message || error);
+                showError();
+            }
+        });
+
+        async function initializeViewer() {
+            return new Promise((resolve, reject) => {
+                try {
+                    console.log('🚀 Initializing 3D viewer...');
+
+                    // Get the viewer container
+                    const parentDiv = document.getElementById('viewer');
+                    if (!parentDiv) {
+                        throw new Error('Viewer container not found');
+                    }
+
+                    console.log('📦 Viewer container found, creating viewer...');
+
+                    // Configure viewer with proper Online3DViewer parameters
+                    const viewerConfig = {
+                        backgroundColor: new OV.RGBAColor(248, 249, 250, 255),
+                        defaultColor: new OV.RGBColor(200, 200, 200),
+                        // Add EdgeSettings to show edges by default with dark gray color
+                        edgeSettings: new OV.EdgeSettings(
+                            true,  // showEdges - enabled by default
+                            new OV.RGBColor(50, 50, 50),  // edge color - dark gray (50)
+                            50  // edge threshold angle - filter parameter (50 degrees)
+                        )
+                    };
+
+                    // Create viewer with proper configuration
+                    viewer = new OV.EmbeddedViewer(parentDiv, viewerConfig);
+
+                    console.log('📋 Viewer created with edges enabled by default...');
+
+                    // Debug: Log available viewer methods and properties
+                    console.log('🔍 Available viewer methods:', Object.getOwnPropertyNames(viewer));
+                    console.log('🔍 Viewer prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(viewer)));
+
+                    // Try to access the underlying viewer/camera system
+                    if (viewer.GetViewer) {
+                        const underlyingViewer = viewer.GetViewer();
+                        console.log('🎥 Underlying viewer methods:', Object.getOwnPropertyNames(underlyingViewer));
+                        console.log('🎥 Underlying viewer:', underlyingViewer);
+                    }
+
+                    // Initialize 3D orientation axis synchronization
+                    initOrientationAxis();
+
+                    // Load the model
+                    const modelUrl = `${window.location.origin}/static/cadmodels/994.step`;
+                    console.log('📂 Loading model from:', modelUrl);
+
+                    viewer.LoadModelFromUrlList([modelUrl]);
+
+                    console.log('✅ Viewer initialized successfully');
+                    resolve(viewer);
+
+                } catch (error) {
+                    console.error('💥 Error in initializeViewer:', error);
+                    reject(error);
+                }
+            });
+        }
+
+        function showError(message) {
+            console.error('❌ Error:', message);
+            // Since we removed the error container, just log the error
+            // You could add a simple alert or create a temporary error message if needed
+        }
+
+        function resetCamera() {
+            if (viewer && typeof viewer.FitToWindow === 'function') {
+                viewer.FitToWindow();
+                console.log('📷 Camera reset to fit window');
+            } else {
+                console.log('❌ Reset camera function not available');
+            }
+        }
+
+        // 3D Orientation Axis Functions
+        function initOrientationAxis() {
+            const axisCube = document.getElementById('axis-cube');
+            if (!axisCube) return;
+
+            console.log('🧭 Initializing 3D orientation axis...');
+
+            // Try to track camera changes through various methods
+            trackCameraChanges();
+
+            // Set initial orientation
+            updateAxisOrientation(0, 0, 0);
+        }
+
+        function trackCameraChanges() {
+            // Method 1: Try to access underlying three.js camera through multiple paths
+            if (viewer && viewer.GetViewer) {
+                const underlyingViewer = viewer.GetViewer();
+                console.log('🎥 Underlying viewer structure:', underlyingViewer);
+
+                // Try different paths to access the camera
+                const possibleCameraPaths = [
+                    () => underlyingViewer.camera,
+                    () => underlyingViewer.GetCamera && underlyingViewer.GetCamera(),
+                    () => underlyingViewer.viewer && underlyingViewer.viewer.camera,
+                    () => underlyingViewer.scene && underlyingViewer.scene.camera,
+                    () => underlyingViewer.renderer && underlyingViewer.renderer.camera,
+                    () => underlyingViewer.navigation && underlyingViewer.navigation.camera
+                ];
+
+                for (let i = 0; i < possibleCameraPaths.length; i++) {
+                    try {
+                        const camera = possibleCameraPaths[i]();
+                        if (camera && (camera.position || camera.rotation)) {
+                            console.log('🎯 Found camera at path', i, ':', camera);
+                            startAdvancedCameraTracking(camera, underlyingViewer);
+                            return;
+                        }
+                    } catch (e) {
+                        // Continue to next path
+                    }
+                }
+            }
+
+            // Method 2: Enhanced mouse tracking with better sensitivity
+            console.log('🖱️ Setting up enhanced mouse-based rotation tracking...');
+            setupEnhancedMouseTracking();
+        }
+
+        function startAdvancedCameraTracking(camera, viewer) {
+            console.log('🎥 Starting advanced camera tracking...');
+            let lastMatrix = null;
+            let lastPosition = null;
+            let lastRotation = null;
+
+            function updateLoop() {
+                try {
+                    let rotationChanged = false;
+
+                    // Try multiple ways to detect camera changes
+                    if (camera.matrix && camera.matrix.elements) {
+                        const currentMatrix = camera.matrix.elements.join(',');
+                        if (currentMatrix !== lastMatrix) {
+                            lastMatrix = currentMatrix;
+                            rotationChanged = true;
+                        }
+                    }
+
+                    if (camera.position && camera.rotation) {
+                        const posKey = `${camera.position.x},${camera.position.y},${camera.position.z}`;
+                        const rotKey = `${camera.rotation.x},${camera.rotation.y},${camera.rotation.z}`;
+
+                        if (posKey !== lastPosition || rotKey !== lastRotation) {
+                            lastPosition = posKey;
+                            lastRotation = rotKey;
+                            rotationChanged = true;
+                        }
+                    }
+
+                    if (rotationChanged) {
+                        // Calculate orientation from camera matrix or rotation
+                        if (camera.matrix && camera.matrix.elements) {
+                            updateAxisFromMatrix(camera.matrix.elements);
+                        } else if (camera.rotation) {
+                            updateAxisOrientation(camera.rotation.x, camera.rotation.y, camera.rotation.z);
+                        }
+                    }
+                } catch (error) {
+                    console.log('⚠️ Camera tracking error:', error);
+                }
+
+                requestAnimationFrame(updateLoop);
+            }
+            updateLoop();
+        }
+
+        function updateAxisFromMatrix(matrixElements) {
+            // Extract rotation from transformation matrix with proper coordinate system handling
+            const m = matrixElements;
+
+            // Create a more stable rotation extraction
+            // Use the camera's forward vector to determine orientation
+            const forward = {
+                x: -m[8],  // -Z component (camera looks down -Z)
+                y: -m[9],  // -Y component 
+                z: -m[10] // -Z component
+            };
+
+            const up = {
+                x: m[4],   // Y component
+                y: m[5],   // Y component  
+                z: m[6]    // Y component
+            };
+
+            const right = {
+                x: m[0],   // X component
+                y: m[1],   // X component
+                z: m[2]    // X component
+            };
+
+            // Calculate stable Euler angles from the camera vectors
+            let rotX = Math.atan2(forward.y, Math.sqrt(forward.x * forward.x + forward.z * forward.z));
+            let rotY = Math.atan2(-forward.x, -forward.z);
+            let rotZ = Math.atan2(right.y, up.y);
+
+            // Apply the rotation with proper coordinate system conversion
+            updateAxisOrientation(rotX, rotY, rotZ);
+        }
+
+        function setupEnhancedMouseTracking() {
+            const viewerElement = document.getElementById('viewer');
+            let isRotating = false;
+
+            // Use more stable rotation tracking
+            let cameraRotation = {
+                pitch: -15,  // X rotation (up/down)
+                yaw: 25,     // Y rotation (left/right)  
+                roll: 0      // Z rotation (tilt)
+            };
+
+            let lastMouseX = 0;
+            let lastMouseY = 0;
+
+            // Much more conservative sensitivity
+            const sensitivity = 0.15;
+            const smoothingFactor = 0.08;
+
+            let targetRotation = { ...cameraRotation };
+
+            viewerElement.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    isRotating = true;
+                    lastMouseX = e.clientX;
+                    lastMouseY = e.clientY;
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isRotating) {
+                    const deltaX = e.clientX - lastMouseX;
+                    const deltaY = e.clientY - lastMouseY;
+
+                    // Only update for significant movements
+                    if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                        // Update target rotation with very conservative sensitivity
+                        targetRotation.yaw += deltaX * sensitivity;
+                        targetRotation.pitch -= deltaY * sensitivity;
+
+                        // Clamp pitch to prevent gimbal lock issues
+                        targetRotation.pitch = Math.max(-85, Math.min(85, targetRotation.pitch));
+
+                        // Normalize yaw to 0-360 range
+                        targetRotation.yaw = ((targetRotation.yaw % 360) + 360) % 360;
+
+                        lastMouseX = e.clientX;
+                        lastMouseY = e.clientY;
+                    }
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isRotating = false;
+            });
+
+            // Smooth animation loop with better interpolation
+            function smoothUpdate() {
+                // Smooth interpolation towards target rotation
+                cameraRotation.pitch += (targetRotation.pitch - cameraRotation.pitch) * smoothingFactor;
+                cameraRotation.yaw += (targetRotation.yaw - cameraRotation.yaw) * smoothingFactor;
+                cameraRotation.roll += (targetRotation.roll - cameraRotation.roll) * smoothingFactor;
+
+                // Convert to radians and apply with proper coordinate system
+                const pitchRad = cameraRotation.pitch * Math.PI / 180;
+                const yawRad = cameraRotation.yaw * Math.PI / 180;
+                const rollRad = cameraRotation.roll * Math.PI / 180;
+
+                updateAxisOrientation(pitchRad, yawRad, rollRad);
+
+                requestAnimationFrame(smoothUpdate);
+            }
+            smoothUpdate();
+        }
+
+        function updateAxisOrientation(rotX, rotY, rotZ) {
+            const axisCube = document.getElementById('axis-cube');
+            if (!axisCube) return;
+
+            // Convert radians to degrees
+            const degX = rotX * 180 / Math.PI;
+            const degY = rotY * 180 / Math.PI;
+            const degZ = rotZ * 180 / Math.PI;
+
+            // Apply rotation with proper coordinate system mapping
+            // Invert Y to match the 3D viewer's coordinate system
+            // Add small offset to match initial viewer orientation
+            const finalX = -degX;  // Invert pitch
+            const finalY = degY;   // Keep yaw as-is
+            const finalZ = degZ;   // Keep roll as-is
+
+            axisCube.style.transform = `rotateX(${finalX}deg) rotateY(${finalY}deg) rotateZ(${finalZ}deg)`;
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (viewer) {
+                viewer.Resize();
+            }
+        });
+    </script>
+</body>
+
+</html>

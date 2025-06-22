@@ -1,5 +1,6 @@
 :root {
-    --primary-color: #9146FF; /* Original vibrant purple */
+    --primary-color: #9146FF;
+    /* Original vibrant purple */
     --secondary-color: #202123;
     --background-color: #FFFFFF;
     --text-color: #353740;
@@ -8,44 +9,61 @@
     --system-message-bg: #ffffff;
 }
 
-html, body {
+html,
+body {
     height: 100%;
     margin: 0;
-    padding: 0 !important; /* Prevent Bootstrap from adding padding */
+    padding: 0 !important;
+    /* Prevent Bootstrap from adding padding */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     color: var(--text-color);
-    background-color: var(--background-color) !important; /* Force white background */
-    overflow-x: hidden; /* Prevent horizontal scrolling */
-    overflow-y: auto; /* Use auto instead of scroll */
+    background-color: var(--background-color) !important;
+    /* Force white background */
+    overflow-x: hidden;
+    /* Prevent horizontal scrolling */
+    overflow-y: auto;
+    /* Use auto instead of scroll */
 }
 
 /* Add padding to the top of the container to account for the fixed header */
 .container-fluid {
-    padding-top: 0 !important; /* No padding needed at container level */
+    padding-top: 0 !important;
+    /* No padding needed at container level */
 }
 
 /* Prevent Bootstrap modal from adding padding-right to body */
 body.modal-open {
-    overflow: hidden !important; /* Prevent scrolling of the main page when modal is open */
+    overflow: hidden !important;
+    /* Prevent scrolling of the main page when modal is open */
     padding-right: 0 !important;
 }
 
 .app-header {
-    position: relative; /* Not fixed anymore, relative to chat panel */
-    width: 100%; /* Full width of the chat panel */
+    position: relative;
+    /* Not fixed anymore, relative to chat panel */
+    width: 100%;
+    /* Full width of the chat panel */
     z-index: 1000;
-    background-color: var(--primary-color); /* Solid color background */
-    height: 50px; /* Thinner header */
+    background-color: var(--primary-color);
+    /* Solid color background */
+    height: 50px;
+    /* Thinner header */
     display: flex;
     align-items: center;
     padding: 0 1.5rem;
-    box-shadow: 0 4px 12px rgba(107, 63, 161, 0.3); /* Less saturated shadow with purple tint */
-    margin-bottom: 16px; /* Less space between thinner header and chat messages */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border for definition */
+    box-shadow: 0 4px 12px rgba(107, 63, 161, 0.3);
+    /* Less saturated shadow with purple tint */
+    margin-bottom: 16px;
+    /* Less space between thinner header and chat messages */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    /* Subtle border for definition */
     position: relative;
-    overflow: hidden; /* For the decorative elements */
-    border-bottom-left-radius: 16px; /* Rounded bottom left corner */
-    border-bottom-right-radius: 16px; /* Rounded bottom right corner */
+    overflow: hidden;
+    /* For the decorative elements */
+    border-bottom-left-radius: 16px;
+    /* Rounded bottom left corner */
+    border-bottom-right-radius: 16px;
+    /* Rounded bottom right corner */
 }
 
 /* Decorative element */
@@ -54,10 +72,14 @@ body.modal-open {
     position: absolute;
     top: -15px;
     right: -15px;
-    width: 70px; /* Smaller circle */
-    height: 70px; /* Smaller circle */
-    background: #7700cc; /* Slightly darker shade of purple */
-    opacity: 0.4; /* Make it semi-transparent */
+    width: 70px;
+    /* Smaller circle */
+    height: 70px;
+    /* Smaller circle */
+    background: #7700cc;
+    /* Slightly darker shade of purple */
+    opacity: 0.4;
+    /* Make it semi-transparent */
     border-radius: 50%;
     pointer-events: none;
 }
@@ -66,11 +88,15 @@ body.modal-open {
 
 .app-header h1 {
     margin: 0;
-    font-size: 1.25rem; /* Even smaller text */
-    font-weight: 400; /* Regular weight instead of bold */
-    color: white; /* White text */
+    font-size: 1.25rem;
+    /* Even smaller text */
+    font-weight: 400;
+    /* Regular weight instead of bold */
+    color: white;
+    /* White text */
     letter-spacing: -0.5px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Text shadow for depth */
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    /* Text shadow for depth */
     position: relative;
     z-index: 2;
     display: flex;
@@ -93,7 +119,8 @@ body.modal-open {
     flex-direction: column;
     height: 100vh;
     background-color: var(--background-color);
-    position: relative; /* For the pseudo-element */
+    position: relative;
+    /* For the pseudo-element */
     padding: 0;
 }
 
@@ -106,15 +133,18 @@ body.modal-open {
     width: 1px;
     height: 100%;
     background-color: #e5e5e5;
-    z-index: 50; /* Lower than modal z-index */
-    pointer-events: none; /* So it doesn't interfere with clicks */
+    z-index: 50;
+    /* Lower than modal z-index */
+    pointer-events: none;
+    /* So it doesn't interfere with clicks */
 }
 
 .conversation-container {
     flex-grow: 1;
     overflow-y: auto;
     padding: 16px;
-    padding-top: 0; /* Remove extra padding since we have container padding now */
+    padding-top: 0;
+    /* Remove extra padding since we have container padding now */
 }
 
 .input-container {
@@ -154,10 +184,13 @@ body.modal-open {
 }
 
 .user-message .message-icon {
-    background-color: #202123; /* Black background */
+    background-color: #202123;
+    /* Black background */
     color: white;
-    border: 0.5px solid black; /* Ultra-thin black border */
-    overflow: hidden; /* Keep the image contained within the circle */
+    border: 0.5px solid black;
+    /* Ultra-thin black border */
+    overflow: hidden;
+    /* Keep the image contained within the circle */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -168,8 +201,10 @@ body.modal-open {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    border-radius: 50%; /* Ensure the image itself has rounded corners */
-    padding: 0; /* No padding for maximum size */
+    border-radius: 50%;
+    /* Ensure the image itself has rounded corners */
+    padding: 0;
+    /* No padding for maximum size */
 }
 
 /* Legacy support for icon font if no designer icon is used */
@@ -187,7 +222,8 @@ body.modal-open {
     height: 40px;
     object-fit: contain;
     border-radius: 50%;
-    margin: -5px;  /* Negative margin to compensate for larger size */
+    margin: -5px;
+    /* Negative margin to compensate for larger size */
 }
 
 .message-content {
@@ -230,22 +266,39 @@ body.modal-open {
     background-color: var(--accent-color);
     border-radius: 50%;
     animation: loading 1.4s infinite ease-in-out;
-    display: inline-block; /* Make dots display inline */
+    display: inline-block;
+    /* Make dots display inline */
 }
 
-.loading-dot:nth-child(1) { animation-delay: -0.32s; }
-.loading-dot:nth-child(2) { animation-delay: -0.16s; }
-.loading-dot:nth-child(3) { animation-delay: 0s; }
+.loading-dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+.loading-dot:nth-child(3) {
+    animation-delay: 0s;
+}
 
 @keyframes loading {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1); }
+
+    0%,
+    80%,
+    100% {
+        transform: scale(0);
+    }
+
+    40% {
+        transform: scale(1);
+    }
 }
 
 /* Styling for the loading-dots class used for non-polling animations */
 .loading-dots {
     display: flex !important;
-    flex-direction: row !important; 
+    flex-direction: row !important;
     align-items: center !important;
     justify-content: center !important;
     height: auto !important;
@@ -266,9 +319,17 @@ body.modal-open {
     animation: loading 1.4s infinite ease-in-out;
 }
 
-.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
-.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
-.loading-dots span:nth-child(3) { animation-delay: 0s; }
+.loading-dots span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.loading-dots span:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+.loading-dots span:nth-child(3) {
+    animation-delay: 0s;
+}
 
 .viewer-panel {
     height: 100vh;
@@ -287,20 +348,25 @@ body.modal-open {
 .btn-primary {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
-    min-height: 40px; /* Match the initial height of textarea */
-    height: fit-content; /* Take height of content when needed */
-    align-self: stretch; /* Stretch to match height */
+    min-height: 40px;
+    /* Match the initial height of textarea */
+    height: fit-content;
+    /* Take height of content when needed */
+    align-self: stretch;
+    /* Stretch to match height */
 }
 
 .btn-primary:hover {
-    background-color: #7700cc; /* Darker shade of vibrant purple */
+    background-color: #7700cc;
+    /* Darker shade of vibrant purple */
     border-color: #7700cc;
 }
 
 .send-button {
     position: absolute;
     right: 8px;
-    bottom: 8px; /* Fixed position from bottom */
+    bottom: 8px;
+    /* Fixed position from bottom */
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -310,16 +376,20 @@ body.modal-open {
     padding: 0;
     min-height: 36px;
     z-index: 5;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
-    transform: translateY(0); /* Prevent movement */
-    transition: background-color 0.2s ease; /* Only transition the color */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    /* Add subtle shadow */
+    transform: translateY(0);
+    /* Prevent movement */
+    transition: background-color 0.2s ease;
+    /* Only transition the color */
 }
 
 .input-group {
     background-color: var(--background-color);
     border-radius: 8px;
     display: flex;
-    align-items: flex-end; /* Align button to bottom when textarea grows */
+    align-items: flex-end;
+    /* Align button to bottom when textarea grows */
 }
 
 .form-control {
@@ -335,35 +405,51 @@ body.modal-open {
 
 /* Textarea auto-expand styles */
 textarea.auto-expand {
-    resize: none; /* Disable manual resize */
-    overflow-y: hidden; /* Hide scrollbar by default */
-    min-height: 52px; /* Prevent shrinking below this */
-    max-height: 150px; /* Maximum height before scrolling */
+    resize: none;
+    /* Disable manual resize */
+    overflow-y: hidden;
+    /* Hide scrollbar by default */
+    min-height: 52px;
+    /* Prevent shrinking below this */
+    max-height: 150px;
+    /* Maximum height before scrolling */
     width: 100%;
     line-height: 1.5;
     transition: height 0.2s ease;
-    white-space: pre-wrap; /* Allow text to wrap */
-    word-wrap: break-word; /* Break long words */
-    padding-right: 50px; /* Add space for the send button */
-    padding-top: 14px; /* Center text vertically */
-    padding-bottom: 14px; /* Center text vertically */
-    border-radius: 20px; /* Rounded corners */
+    white-space: pre-wrap;
+    /* Allow text to wrap */
+    word-wrap: break-word;
+    /* Break long words */
+    padding-right: 50px;
+    /* Add space for the send button */
+    padding-top: 14px;
+    /* Center text vertically */
+    padding-bottom: 14px;
+    /* Center text vertically */
+    border-radius: 20px;
+    /* Rounded corners */
 }
 
 textarea.auto-expand.overflow {
-    overflow-y: auto; /* Show scrollbar when max height is reached */
+    overflow-y: auto;
+    /* Show scrollbar when max height is reached */
 }
 
 /* Waiting state styles */
 textarea.auto-expand.waiting {
-    background-color: #f5f5f5; /* Light gray background */
-    cursor: not-allowed; /* Change cursor to indicate disabled state */
-    opacity: 0.8; /* Slightly reduce opacity */
+    background-color: #f5f5f5;
+    /* Light gray background */
+    cursor: not-allowed;
+    /* Change cursor to indicate disabled state */
+    opacity: 0.8;
+    /* Slightly reduce opacity */
 }
 
 button.waiting {
-    opacity: 0.7; /* Reduce opacity for waiting button */
-    cursor: not-allowed; /* Change cursor to indicate disabled state */
+    opacity: 0.7;
+    /* Reduce opacity for waiting button */
+    cursor: not-allowed;
+    /* Change cursor to indicate disabled state */
 }
 
 @media (max-width: 768px) {
@@ -371,7 +457,8 @@ button.waiting {
         flex-direction: column;
     }
 
-    .chat-panel, .viewer-panel {
+    .chat-panel,
+    .viewer-panel {
         height: 50vh;
     }
 }
@@ -385,13 +472,16 @@ button.waiting {
     display: flex;
     justify-content: space-between;
     padding: 0 16px;
-    height: 38px; /* Fixed height for the control bar */
+    height: 38px;
+    /* Fixed height for the control bar */
 }
 
 .viewer-left-controls {
     display: flex;
-    gap: 10px; /* Space between buttons */
-    align-items: center; /* Vertically center the buttons */
+    gap: 10px;
+    /* Space between buttons */
+    align-items: center;
+    /* Vertically center the buttons */
 }
 
 /* Ensure buttons in this container have same height */
@@ -407,19 +497,27 @@ button.waiting {
     transition: background-color 0.2s;
     font-size: 14px !important;
     font-weight: 500 !important;
-    height: 38px !important; /* Fixed height with !important to override Bootstrap */
-    line-height: 22px !important; /* Fixed line height */
+    height: 38px !important;
+    /* Fixed height with !important to override Bootstrap */
+    line-height: 22px !important;
+    /* Fixed line height */
     display: inline-flex !important;
     align-items: center !important;
-    justify-content: center !important; /* Ensure content is centered */
+    justify-content: center !important;
+    /* Ensure content is centered */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box !important; /* Include padding in height calculation */
-    min-width: 126px !important; /* Set minimum width to match the buttons */
-    margin: 0 !important; /* Reset any Bootstrap margins */
+    box-sizing: border-box !important;
+    /* Include padding in height calculation */
+    min-width: 126px !important;
+    /* Set minimum width to match the buttons */
+    margin: 0 !important;
+    /* Reset any Bootstrap margins */
 }
 
 /* Make icons the same size */
-#trajectoryBtn i, #newDesignBtn i, #saveDesignBtn i {
+#trajectoryBtn i,
+#newDesignBtn i,
+#saveDesignBtn i {
     font-size: 14px;
     width: 14px;
     height: 14px;
@@ -430,25 +528,32 @@ button.waiting {
     background-color: var(--primary-color) !important;
 }
 
-#trajectoryBtn:hover, #trajectoryBtn:focus {
-    background-color: #7700cc !important; /* Darker shade of vibrant purple */
+#trajectoryBtn:hover,
+#trajectoryBtn:focus {
+    background-color: #7700cc !important;
+    /* Darker shade of vibrant purple */
 }
 
 #saveDesignBtn {
-    background-color: #28a745 !important; /* Green color for save button */
+    background-color: #28a745 !important;
+    /* Green color for save button */
 }
 
-#saveDesignBtn:hover, #saveDesignBtn:focus {
-    background-color: #218838 !important; /* Darker green on hover */
+#saveDesignBtn:hover,
+#saveDesignBtn:focus {
+    background-color: #218838 !important;
+    /* Darker green on hover */
 }
 
 #newDesignBtn {
-    background-color: var(--secondary-color) !important; /* Black background (#202123) */
+    background-color: var(--secondary-color) !important;
+    /* Black background (#202123) */
 }
 
 #newDesignBtn:hover,
 #newDesignBtn:focus {
-    background-color: #2d2d30 !important; /* Slightly lighter shade of black on hover */
+    background-color: #2d2d30 !important;
+    /* Slightly lighter shade of black on hover */
 }
 
 /* Save Design Modal Styles */
@@ -537,8 +642,13 @@ button.waiting {
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .rollback-btn:hover {
@@ -579,41 +689,54 @@ button.waiting {
 /* Specific positioning for the top positioned color selector */
 .color-selector-container.top-positioned {
     position: absolute;
-    top: 70px; /* Positioned below the buttons with adequate space */
-    left: 16px; /* Align with the trajectory button (same left padding as viewer-top-controls) */
+    top: 70px;
+    /* Positioned below the buttons with adequate space */
+    left: 16px;
+    /* Align with the trajectory button (same left padding as viewer-top-controls) */
     margin: 0;
 }
 
 .color-selector-wrapper {
     display: flex;
     flex-direction: column;
-    align-items: center; /* Center align all contents */
+    align-items: center;
+    /* Center align all contents */
     background-color: #f7f7f8;
-    padding: 8px 18px 15px 20px; /* Less padding at top (10px), moderate padding at bottom (15px) */
+    padding: 8px 18px 15px 20px;
+    /* Less padding at top (10px), moderate padding at bottom (15px) */
     border-radius: 10px;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(145, 70, 255, 0.3); /* Purple border for visibility */
-    max-width: 200px; /* Slightly wider to accommodate larger padding */
-    margin: 0; /* Reset margin */
+    border: 1px solid rgba(145, 70, 255, 0.3);
+    /* Purple border for visibility */
+    max-width: 200px;
+    /* Slightly wider to accommodate larger padding */
+    margin: 0;
+    /* Reset margin */
 }
 
 .color-selector-label {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     font-size: 15px;
-    font-weight: 400; /* Match the weight used elsewhere */
+    font-weight: 400;
+    /* Match the weight used elsewhere */
     color: var(--text-color);
-    margin-bottom: 10px; /* More space below the label */
-    text-align: center; /* Center aligned as requested */
-    letter-spacing: 0.01em; /* Subtle letter spacing for better readability */
+    margin-bottom: 10px;
+    /* More space below the label */
+    text-align: center;
+    /* Center aligned as requested */
+    letter-spacing: 0.01em;
+    /* Subtle letter spacing for better readability */
 }
 
 .color-selector {
     display: flex;
-    gap: 12px; /* Increased gap between colors */
+    gap: 12px;
+    /* Increased gap between colors */
 }
 
 .color-option {
-    width: 20px; /* Smaller color circles */
+    width: 20px;
+    /* Smaller color circles */
     height: 20px;
     border-radius: 50%;
     cursor: pointer;
@@ -642,7 +765,8 @@ button.waiting {
 
 .waitlist-button {
     color: white;
-    background-color: var(--primary-color); /* Purple color to match app theme */
+    background-color: var(--primary-color);
+    /* Purple color to match app theme */
     border: none;
     border-radius: 8px;
     padding: 10px 16px;
@@ -653,7 +777,8 @@ button.waiting {
 }
 
 .waitlist-button:hover {
-    background-color: #7700cc; /* Darker purple */
+    background-color: #7700cc;
+    /* Darker purple */
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
@@ -875,7 +1000,8 @@ button.waiting {
 /* Trajectory Modal Styles */
 /* Remove modal backdrop completely */
 .modal-backdrop {
-    display: none !important; /* Hide backdrop completely */
+    display: none !important;
+    /* Hide backdrop completely */
 }
 
 /* Override Bootstrap modal styles */
@@ -883,32 +1009,44 @@ button.waiting {
     background-color: transparent !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
-    z-index: 1200 !important; /* Higher z-index to stay above the border line */
+    z-index: 1200 !important;
+    /* Higher z-index to stay above the border line */
 }
 
 #trajectoryModal {
-    background-color: rgba(255, 255, 255, 0.85); /* Semi-transparent white background */
-    overflow: hidden !important; /* No scrollbars on the modal container */
-    z-index: 1200; /* Higher z-index to stay above the border line */
+    background-color: rgba(255, 255, 255, 0.85);
+    /* Semi-transparent white background */
+    overflow: hidden !important;
+    /* No scrollbars on the modal container */
+    z-index: 1200;
+    /* Higher z-index to stay above the border line */
 }
 
 #trajectoryModal .modal-dialog {
-    overflow: hidden !important; /* Ensure no scrollbars on the dialog */
-    max-height: 90vh; /* Limit dialog height to prevent overflow */
+    overflow: hidden !important;
+    /* Ensure no scrollbars on the dialog */
+    max-height: 90vh;
+    /* Limit dialog height to prevent overflow */
     position: relative;
-    z-index: 1200; /* Higher z-index to stay above the border line */
+    z-index: 1200;
+    /* Higher z-index to stay above the border line */
 }
 
 #trajectoryModal .modal-content {
     border-radius: 12px;
-    border: 0.5px solid #d0d0d0; /* Ultra thin gray border */
+    border: 0.5px solid #d0d0d0;
+    /* Ultra thin gray border */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    margin: 0 auto; /* Center the modal */
-    max-height: 90vh; /* Ensure modal fits in viewport */
+    margin: 0 auto;
+    /* Center the modal */
+    max-height: 90vh;
+    /* Ensure modal fits in viewport */
     display: flex;
-    flex-direction: column; /* Stack header, body, footer */
+    flex-direction: column;
+    /* Stack header, body, footer */
     position: relative;
-    z-index: 1200; /* Higher z-index to stay above the border line */
+    z-index: 1200;
+    /* Higher z-index to stay above the border line */
 }
 
 #trajectoryModal .modal-header {
@@ -931,10 +1069,14 @@ button.waiting {
 #trajectoryModal .modal-body {
     padding: 24px;
     min-height: 400px;
-    max-height: 75vh; /* Slightly shorter to ensure it fits within the modal */
-    overflow-y: auto; /* Only show scrollbar in the modal body */
-    overflow-x: hidden; /* Prevent horizontal scrollbar */
-    flex: 1; /* Allow body to expand to fill available space */
+    max-height: 75vh;
+    /* Slightly shorter to ensure it fits within the modal */
+    overflow-y: auto;
+    /* Only show scrollbar in the modal body */
+    overflow-x: hidden;
+    /* Prevent horizontal scrollbar */
+    flex: 1;
+    /* Allow body to expand to fill available space */
 }
 
 #trajectoryModal .btn-close {
@@ -949,7 +1091,8 @@ button.waiting {
 }
 
 #trajectoryModal .btn-close:hover {
-    background-color: #7700cc; /* Darker shade of vibrant purple */
+    background-color: #7700cc;
+    /* Darker shade of vibrant purple */
 }
 
 .loading-spinner {
@@ -1043,7 +1186,8 @@ button.waiting {
     color: #6e6e80;
 }
 
-.no-data, .error-message {
+.no-data,
+.error-message {
     text-align: center;
     padding: 40px 0;
     color: var(--text-color);
@@ -1238,21 +1382,25 @@ button.waiting {
 }
 
 /* Styling for the expandable message boxes */
-.message-box { 
-    padding: 15px; 
-    margin: 15px 0; 
-    border-radius: 8px; 
-    background-color: #f0f0ff; /* Light purple background */
-    border-left: 4px solid var(--primary-color); /* Purple accent on the left */
+.message-box {
+    padding: 15px;
+    margin: 15px 0;
+    border-radius: 8px;
+    background-color: #f0f0ff;
+    /* Light purple background */
+    border-left: 4px solid var(--primary-color);
+    /* Purple accent on the left */
     box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
     cursor: pointer;
     transition: all 0.2s ease;
-    position: relative; /* For positioning the expand indicator */
+    position: relative;
+    /* For positioning the expand indicator */
 }
 
 .message-box:hover {
     box-shadow: 3px 3px 15px rgba(0, 0, 0, 0.15);
-    background-color: #f5f0ff; /* Slightly different color on hover */
+    background-color: #f5f0ff;
+    /* Slightly different color on hover */
 }
 
 /* Style for the expand/collapse indicator */
@@ -1296,8 +1444,10 @@ button.waiting {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    max-height: 1.5em; /* slightly taller for better readability */
-    padding-right: 30px; /* make space for expand icon */
+    max-height: 1.5em;
+    /* slightly taller for better readability */
+    padding-right: 30px;
+    /* make space for expand icon */
     font-style: italic;
     color: #666;
 }

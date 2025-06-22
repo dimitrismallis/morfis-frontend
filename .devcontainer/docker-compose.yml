@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  web:
+    build: 
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - web-packages:/usr/local/lib/python3.12/site-packages
+      - web-node-modules:/workspace/node_modules
+    command: sleep infinity
+    environment:
+      - FLASK_APP=main.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - PYTHONPATH=/workspace
+      - FLASK_SECRET_KEY=dev-secret-key
+      - DATABASE_URL=postgresql://postgres:password@db:5432/morfis_dev
+      - BACKEND_URL=https://morfis.ngrok.app
+    depends_on:
+      - db
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=morfis_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  web-packages:
+  web-node-modules: 
