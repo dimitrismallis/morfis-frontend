@@ -85,6 +85,26 @@
             background: #218838;
         }
 
+        .control-btn.measuring {
+            background: #ffc107;
+            color: #212529;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
         .viewer-content {
             height: 100vh;
             width: 100vw;
@@ -197,6 +217,22 @@
 
 <body>
     <div class="viewer-container">
+        <!-- Header with controls -->
+        <div class="viewer-header">
+            <div class="viewer-title">3D STEP Model Viewer</div>
+            <div class="viewer-controls">
+                <button id="reset-camera-btn" class="control-btn" onclick="resetCamera()">
+                    <i class="fas fa-expand-arrows-alt"></i> Reset Camera
+                </button>
+                <button id="measure-btn" class="control-btn">
+                    <i class="fas fa-ruler"></i> Measure
+                </button>
+                <button id="clear-measure-btn" class="control-btn" onclick="clearAllMeasurements()">
+                    <i class="fas fa-eraser"></i> Clear
+                </button>
+            </div>
+        </div>
+
         <!-- 3D Orientation Axis -->
         <div class="orientation-axis">
             <div class="axis-cube" id="axis-cube">
@@ -211,6 +247,12 @@
 
         <div id="viewer"></div>
     </div>
+
+    <!-- Load Three.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+
+    <!-- Load measuring tool -->
+    <script src="/static/js/measure_tool.js"></script>
 
     <!-- Load Online3DViewer dependencies -->
     <script>
@@ -334,6 +376,13 @@
 
                     viewer.LoadModelFromUrlList([modelUrl]);
 
+                    // Initialize measuring tool after viewer is ready
+                    setTimeout(() => {
+                        if (typeof initMeasureTool === 'function') {
+                            initMeasureTool();
+                        }
+                    }, 2000);
+
                     console.log('✅ Viewer initialized successfully');
                     resolve(viewer);
 
@@ -356,6 +405,15 @@
                 console.log('📷 Camera reset to fit window');
             } else {
                 console.log('❌ Reset camera function not available');
+            }
+        }
+
+        function clearAllMeasurements() {
+            if (window.measureTool && window.measureTool.clearMeasurements) {
+                window.measureTool.clearMeasurements();
+                console.log('🧹 All measurements cleared via button');
+            } else {
+                console.log('❌ Measure tool not available for clearing');
             }
         }
 
