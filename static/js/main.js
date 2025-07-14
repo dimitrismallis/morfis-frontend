@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', async function () {
+// Function to initialize the main Morfis application
+async function initializeMorfisApp() {
     // Generate or retrieve tab-specific ID for independent sessions per tab
     // Use Broadcast Channel API to detect duplicate tabs
     let tabId = sessionStorage.getItem('tabId');
@@ -852,5 +853,39 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
         return messageDiv;
+    }
+}
+
+// Check authentication status and initialize app accordingly
+document.addEventListener('DOMContentLoaded', function () {
+    // Check if login overlay exists (indicates user is not authenticated)
+    const loginOverlay = document.getElementById('loginOverlay');
+
+    if (!loginOverlay) {
+        // User is authenticated, initialize the app
+        initializeMorfisApp();
+    } else {
+        // User not authenticated, wait for login
+        console.log('Morfis: Authentication required, app initialization blocked');
+
+        // Listen for successful login
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.type === 'childList') {
+                    // Check if login overlay was removed
+                    if (!document.getElementById('loginOverlay')) {
+                        console.log('Morfis: Authentication successful, initializing app');
+                        initializeMorfisApp();
+                        observer.disconnect();
+                    }
+                }
+            });
+        });
+
+        // Watch for removal of login overlay
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     }
 });

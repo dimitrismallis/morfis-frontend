@@ -3,7 +3,7 @@ import os
 import time
 
 import requests
-from flask import Flask, jsonify, render_template, request, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -35,6 +35,82 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 # Initialize SQLAlchemy if needed for other features
 db = SQLAlchemy(app)
+
+# Password protection configuration
+SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "morfis2025")
+
+
+# Authentication middleware
+@app.before_request
+def check_password_protection():
+    """Check if user is authenticated before allowing access to protected routes."""
+    # Allow access to login route, logout route, and static files
+    if request.endpoint in ["login", "logout", "static"]:
+        return
+
+    # For API endpoints and POST requests, block if not authenticated
+    if not session.get("authenticated"):
+        # Block all API endpoints
+        if request.endpoint and (
+            request.endpoint.startswith("api/") or request.endpoint.startswith("get_")
+        ):
+            return jsonify({"error": "Authentication required"}), 401
+
+        # Block POST requests that could modify data
+        if request.method == "POST" and request.endpoint not in ["login"]:
+            return jsonify({"error": "Authentication required"}), 401
+
+        # Block specific endpoints that fetch/modify data
+        protected_endpoints = [
+            "generate_cad",
+            "new_design",
+            "save_design",
+            "rollback",
+            "submit_feedback",
+            "submit_waitlist",
+            "get_trajectory",
+            "get_trajectory_html",
+            "get_app_config",
+            "get_session_stats",
+        ]
+        if request.endpoint in protected_endpoints:
+            return jsonify({"error": "Authentication required"}), 401
+
+    # For the main page, we'll handle authentication in the template
+    # Don't redirect here - let the page load with login overlay if needed
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    """Handle user login with password protection."""
+    password = request.form.get("password", "")
+    if password == SITE_PASSWORD:
+        session["authenticated"] = True
+        session.permanent = True  # Keep login across browser sessions
+
+        # Return success response for AJAX request
+        if request.headers.get("Content-Type") == "application/json" or request.is_json:
+            return jsonify({"success": True})
+
+        # Redirect to originally requested page or home
+        next_page = request.args.get("next")
+        if next_page:
+            return redirect(next_page)
+        return redirect(url_for("index"))
+    else:
+        # Return error response for AJAX request
+        if request.headers.get("Content-Type") == "application/json" or request.is_json:
+            return jsonify({"success": False, "error": "Invalid password"})
+
+        return redirect(url_for("index", error="Invalid password"))
+
+
+@app.route("/logout")
+def logout():
+    """Handle user logout."""
+    session.pop("authenticated", None)
+    return redirect(url_for("index"))
+
 
 backend_url = "https://morfis.ngrok.app"
 
@@ -188,7 +264,11 @@ def process_model_data(response_data):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    is_authenticated = session.get("authenticated", False)
+    error_message = request.args.get("error", "")
+    return render_template(
+        "index.html", is_authenticated=is_authenticated, error_message=error_message
+    )
 
 
 @app.route("/step-viewer")
