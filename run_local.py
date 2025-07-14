@@ -17,22 +17,19 @@ def init_database():
         db.create_all()
         print("Database initialized successfully!")
 
+
 def run_app():
     """Run the Flask app in debug mode."""
     # Set environment variables for local development
-    os.environ.setdefault('FLASK_ENV', 'development')
-    os.environ.setdefault('FLASK_DEBUG', '1')
-    
+    os.environ.setdefault("FLASK_ENV", "development")
+    os.environ.setdefault("FLASK_DEBUG", "1")
+
     # Initialize database
     init_database()
-    
-    # Run the app
-    app.run(
-        host='0.0.0.0', 
-        port=5000, 
-        debug=True,
-        use_reloader=True
-    )
 
-if __name__ == '__main__':
-    run_app() 
+    # Run the app
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)
+
+
+if __name__ == "__main__":
+    run_app()

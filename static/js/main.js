@@ -1,8 +1,8 @@
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
     // Generate or retrieve tab-specific ID for independent sessions per tab
     // Use Broadcast Channel API to detect duplicate tabs
     let tabId = sessionStorage.getItem('tabId');
-    
+
     if (!tabId) {
         // First time loading, create new tab ID
         tabId = 'tab_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (typeof BroadcastChannel !== 'undefined') {
                 const channel = new BroadcastChannel('morfis-tab-check');
                 let responseReceived = false;
-                
+
                 // Listen for responses from other tabs
                 const responseHandler = (event) => {
                     if (event.data.type === 'tab-exists' && event.data.tabId === tabId) {
@@ -24,15 +24,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                         console.log('Duplicate tab detected, created new session:', tabId);
                     }
                 };
-                
+
                 channel.addEventListener('message', responseHandler);
-                
+
                 // Ask if any tab with this ID already exists
                 channel.postMessage({ type: 'check-tab', tabId: tabId });
-                
+
                 // Wait briefly for responses
                 await new Promise(resolve => setTimeout(resolve, 50));
-                
+
                 // Set up ongoing duplicate detection for future duplicates
                 channel.addEventListener('message', (event) => {
                     if (event.data.type === 'check-tab' && event.data.tabId === tabId) {
@@ -44,17 +44,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                 // Fallback: use localStorage with timestamp for older browsers
                 const timestamp = Date.now();
                 const lastActivity = localStorage.getItem('morfis-last-activity-' + tabId);
-                
+
                 if (lastActivity && (timestamp - parseInt(lastActivity)) < 5000) {
                     // Another tab was active recently with same ID, create new session
                     tabId = 'tab_' + Math.random().toString(36).substr(2, 9) + '_' + timestamp;
                     sessionStorage.setItem('tabId', tabId);
                     console.log('Duplicate tab detected (fallback), created new session:', tabId);
                 }
-                
+
                 // Update activity timestamp for this tab
                 localStorage.setItem('morfis-last-activity-' + tabId, timestamp.toString());
-                
+
                 // Periodically update activity to indicate this tab is alive
                 setInterval(() => {
                     localStorage.setItem('morfis-last-activity-' + tabId, Date.now().toString());
@@ -65,15 +65,21 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Continue with existing tabId if detection fails
         }
     }
-    
-    // Set up default headers for all requests to include tab ID
+
+    // Set up default headers for requests to our backend only
     const originalFetch = window.fetch;
-    window.fetch = function(url, options = {}) {
-        options.headers = options.headers || {};
-        options.headers['X-Tab-ID'] = tabId;
+    window.fetch = function (url, options = {}) {
+        // Only add X-Tab-ID header for requests to our own backend (relative URLs or same origin)
+        const isOwnBackend = !url.startsWith('http') || url.startsWith(window.location.origin);
+
+        if (isOwnBackend) {
+            options.headers = options.headers || {};
+            options.headers['X-Tab-ID'] = tabId;
+        }
+
         return originalFetch(url, options);
     };
-    
+
     // Calculate scrollbar width and add it as a CSS variable to prevent layout shifts
     const calculateScrollbarWidth = () => {
         // Create a div with scrollbar
@@ -81,25 +87,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         outer.style.visibility = 'hidden';
         outer.style.overflow = 'scroll';
         document.body.appendChild(outer);
-        
+
         // Create an inner div
         const inner = document.createElement('div');
         outer.appendChild(inner);
-        
+
         // Calculate the width difference
         const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
-        
+
         // Remove the divs
         outer.parentNode.removeChild(outer);
-        
+
         // Set the scrollbar width as a CSS variable
         document.documentElement.style.setProperty('--scrollbar-width', scrollbarWidth + 'px');
         console.log('Scrollbar width calculated:', scrollbarWidth);
     };
-    
+
     // Calculate scrollbar width on load
     calculateScrollbarWidth();
-    
+
     const commandForm = document.getElementById('commandForm');
     const commandInput = document.getElementById('commandInput');
     const conversationContainer = document.getElementById('conversationContainer');
@@ -108,21 +114,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     let messageIndex = 0;
     let isWaitingForResponse = false; // Track if we're waiting for a response
     window.trajectoryPollingInterval = null; // Global reference for trajectory polling
-    
+
     // Auto-expand functionality for textarea
     function adjustTextareaHeight() {
         // Get current content to check for multiline
         const content = commandInput.value;
         const lineCount = (content.match(/\n/g) || []).length + 1;
-        
+
         // Always reset to auto height first to get proper scrollHeight calculation
         commandInput.style.height = 'auto';
-        
+
         if (lineCount > 1 || commandInput.scrollHeight > 52) {
             // For multi-line content or overflowing content, use scrollHeight
             const newHeight = Math.min(commandInput.scrollHeight, 150); // Max 150px
             commandInput.style.height = newHeight + 'px';
-            
+
             // Add overflow class if content exceeds max height
             if (commandInput.scrollHeight > 150) {
                 commandInput.classList.add('overflow');
@@ -135,18 +141,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             commandInput.classList.remove('overflow');
         }
     }
-    
+
     // Initialize textarea height with consistent sizing
     commandInput.style.height = '52px'; // Set initial height directly
     adjustTextareaHeight();
-    
+
     // Adjust height when typing or pasting
     commandInput.addEventListener('input', adjustTextareaHeight);
     commandInput.addEventListener('paste', () => {
         // Use setTimeout to allow paste content to be inserted
         setTimeout(adjustTextareaHeight, 0);
     });
-    
+
     // Handle key events - Enter to submit, Shift+Enter for new line
     commandInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -156,7 +162,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     });
-    
+
     // Reset height when form submits - but keep consistent layout
     commandForm.addEventListener('submit', () => {
         setTimeout(() => {
@@ -166,32 +172,39 @@ document.addEventListener('DOMContentLoaded', async function() {
             commandInput.classList.remove('overflow');
         }, 0);
     });
-    
+
     // Fetch app configuration (design types) at startup
     try {
         const response = await fetch('/api/config');
         if (!response.ok) {
             throw new Error('Failed to fetch app configuration');
         }
-        
+
         const config = await response.json();
-        
+
         // Display welcome message if one is provided
         if (config.welcome_message) {
             addMessage(config.welcome_message, 'system');
         }
-        
+
+        // Initialize integrated viewer with configuration
+        const modelViewer = document.getElementById('modelViewer');
+        if (modelViewer && typeof initIntegratedViewer === 'function') {
+            console.log('Initializing integrated viewer with config:', config);
+            await initIntegratedViewer(modelViewer, config);
+        }
+
         // Update model if one is provided in the initial configuration
         if (config.model) {
             console.log('Loading initial 3D model from config');
             updateModel(config.model);
         }
-        
+
         // Dynamic creation of design type menu items
         if (config.design_types && config.design_types.length > 0) {
             // Clear existing items
             designDropdown.innerHTML = '';
-            
+
             // Add each design type as a dropdown item
             config.design_types.forEach(designType => {
                 const listItem = document.createElement('li');
@@ -201,13 +214,13 @@ document.addEventListener('DOMContentLoaded', async function() {
                 link.textContent = designType.name;
                 link.setAttribute('data-design-id', designType.id);
                 link.setAttribute('title', designType.description);
-                
+
                 // Add click event listener
-                link.addEventListener('click', function(e) {
+                link.addEventListener('click', function (e) {
                     e.preventDefault();
                     handleDesignSelection(designType.id);
                 });
-                
+
                 listItem.appendChild(link);
                 designDropdown.appendChild(listItem);
             });
@@ -227,11 +240,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             console.log(`Starting new design of type: ${designType}`);
-            
+
             // Set waiting state and disable input
             isWaitingForResponse = true;
             updateCommandInputState(true);
-            
+
             // Reset message index
             messageIndex = 0;
 
@@ -273,10 +286,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             // Always display the message from the backend for new designs
             if (data.message) {
-                addMessage(data.message, 'system');
+                addMessage(data.message, 'system', true);
             } else {
                 // Fallback message if none is provided
-                addMessage(`New ${designType.replace('_', ' ')} design started.`, 'system');
+                addMessage(`New ${designType.replace('_', ' ')} design started.`, 'system', true);
             }
 
             // Update model if one is provided
@@ -311,16 +324,27 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
+    // Utility function to clear/reset the 3D model viewer
+    function clearModel() {
+        if (typeof resetViewer === 'function') {
+            resetViewer();
+        } else if (typeof clearViewer === 'function') {
+            clearViewer();
+        } else {
+            console.log('No clear/reset function available for 3D viewer');
+        }
+    }
+
     async function handleRollback(targetIndex, button) {
+        // Prevent multiple submissions
+        if (button.classList.contains('loading')) {
+            return;
+        }
+
         try {
-            // Add loading state for button
-            const originalContent = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner"></i> Rolling back...';
+            // Update button state to show loading
             button.classList.add('loading');
-            button.disabled = true;
-            
-            // Note: we intentionally don't show a loading animation message or start trajectory polling
-            // for rollback operations, as they should be quick and don't involve model generation
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rolling back...';
 
             const response = await fetch('/rollback', {
                 method: 'POST',
@@ -330,101 +354,178 @@ document.addEventListener('DOMContentLoaded', async function() {
                 body: JSON.stringify({ message_index: targetIndex })
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to rollback');
-            }
-
             const data = await response.json();
-            
-            // Handle model update or reset
-            if (data.model) {
-                // If we have a model, update it
-                updateModel(data.model);
-            } else if (data.reset_viewer) {
-                // If no model but reset flag is set, reset the viewer
-                if (typeof resetViewer === 'function') {
-                    resetViewer();
+
+            if (response.ok) {
+                // Check if we need to update the 3D model
+                if (data.model) {
+                    console.log('Updating 3D model after rollback');
+                    updateModel(data.model);
+                } else if (data.reset_viewer) {
+                    console.log('Resetting 3D viewer after rollback');
+                    clearModel();
                 }
-            }
-            
-            // If response message is provided, add it to the conversation
-            if (data.message && !data.error) {
-                addMessage(data.message, 'system');
-            }
 
-            // Remove all messages after the clicked rollback button
-            const messages = conversationContainer.getElementsByClassName('message');
-            const currentMessage = button.closest('.message');
-            let foundCurrent = false;
-            let messagesToRemove = [];
+                // Find and remove all messages after the target index
+                const messages = conversationContainer.getElementsByClassName('message');
+                const messagesToRemove = [];
 
-            // Collect messages to remove
-            for (let message of messages) {
-                if (foundCurrent) {
-                    messagesToRemove.push(message);
-                }
-                if (message === currentMessage) {
-                    foundCurrent = true;
-                }
-            }
-
-            // Remove collected messages
-            messagesToRemove.forEach(message => message.remove());
-
-            // Update the messageIndex to match the rolled back state
-            messageIndex = targetIndex + 1;
-
-            // Update or remove rollback buttons after messages are removed
-            const remainingMessages = conversationContainer.getElementsByClassName('message');
-            let lastRemainingSystemMessage = null;
-
-            // Find the new last system message
-            for (let message of remainingMessages) {
-                if (message.classList.contains('system-message')) {
-                    lastRemainingSystemMessage = message;
-                }
-            }
-
-            // Update rollback buttons for all remaining messages
-            for (let message of remainingMessages) {
-                if (message.classList.contains('system-message')) {
-                    const messageContent = message.querySelector('.message-content');
-                    let buttonContainer = messageContent.querySelector('.button-container');
-
-                    // Remove existing button container if it exists
-                    if (buttonContainer) {
-                        buttonContainer.remove();
-                    }
-
-                    // Add rollback button only if this is not the last system message
-                    if (message !== lastRemainingSystemMessage) {
-                        buttonContainer = document.createElement('div');
-                        buttonContainer.className = 'button-container';
-
-                        const rollbackButton = document.createElement('button');
-                        rollbackButton.className = 'rollback-btn';
-                        rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
-                        const currentIndex = parseInt(message.dataset.messageIndex);
-                        rollbackButton.onclick = () => handleRollback(currentIndex, rollbackButton);
-
-                        buttonContainer.appendChild(rollbackButton);
-                        messageContent.appendChild(buttonContainer);
+                for (let message of messages) {
+                    if (message.classList.contains('system-message')) {
+                        const messageIndex = parseInt(message.dataset.messageIndex);
+                        if (messageIndex > targetIndex) {
+                            messagesToRemove.push(message);
+                        }
                     }
                 }
-            }
 
+                // Remove the messages (do this after the loop to avoid live collection issues)
+                messagesToRemove.forEach(message => message.remove());
+
+                // Add the AI's response to the conversation
+                addMessage(data.message, 'system', true);
+
+                console.log(`Successfully rolled back to message ${targetIndex}`);
+            } else {
+                console.error('Rollback failed:', data.error);
+                // Restore button state on error
+                button.classList.remove('loading');
+                button.innerHTML = '<i class="fas fa-history"></i> Rollback here';
+            }
         } catch (error) {
-            console.error('Error:', error);
-            addMessage('Error: Failed to rollback', 'system error');
-        } finally {
-            // Reset button state
-            button.innerHTML = '<i class="fas fa-history"></i> Rollback here';
+            console.error('Error during rollback:', error);
+            // Restore button state on error
             button.classList.remove('loading');
-            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-history"></i> Rollback here';
         }
     }
 
-    async function addMessage(text, type) {
+    async function handleFeedback(messageIndex, feedbackType, button) {
+        // Prevent multiple submissions
+        if (button.classList.contains('active') || button.disabled) {
+            return;
+        }
+
+        try {
+            // Add a subtle click animation
+            button.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                button.style.transform = '';
+            }, 100);
+
+            // Disable all feedback buttons for this message temporarily
+            const messageDiv = button.closest('.message');
+            const allFeedbackButtons = messageDiv.querySelectorAll('.feedback-btn');
+            allFeedbackButtons.forEach(btn => btn.disabled = true);
+
+            const response = await fetch('/api/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message_index: messageIndex,
+                    feedback_type: feedbackType
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Mark the clicked button as active with animation
+                button.classList.add('active');
+
+                // Remove active state from the other feedback button
+                const otherFeedbackType = feedbackType === 'thumbs_up' ? 'thumbs-down' : 'thumbs-up';
+                const otherButton = messageDiv.querySelector(`.feedback-btn.${otherFeedbackType}`);
+                if (otherButton) {
+                    otherButton.classList.remove('active');
+                }
+
+                console.log(`Feedback submitted: ${feedbackType} for message ${messageIndex}`);
+
+                // Enhanced success feedback
+                const originalTitle = button.title;
+                const originalIcon = button.innerHTML;
+
+                // Show checkmark briefly
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.title = 'Feedback submitted!';
+
+                // Create a subtle success ripple effect
+                const ripple = document.createElement('div');
+                ripple.style.cssText = `
+                    position: absolute;
+                    border-radius: 50%;
+                    background: rgba(255, 255, 255, 0.6);
+                    transform: scale(0);
+                    animation: ripple 0.6s linear;
+                    pointer-events: none;
+                    top: 50%;
+                    left: 50%;
+                    width: 10px;
+                    height: 10px;
+                    margin-left: -5px;
+                    margin-top: -5px;
+                `;
+
+                // Add ripple keyframes if not already present
+                if (!document.getElementById('ripple-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'ripple-style';
+                    style.textContent = `
+                        @keyframes ripple {
+                            to {
+                                transform: scale(4);
+                                opacity: 0;
+                            }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                button.appendChild(ripple);
+
+                setTimeout(() => {
+                    ripple.remove();
+                    button.innerHTML = originalIcon;
+                    button.title = originalTitle;
+                }, 1000);
+
+            } else {
+                console.error('Feedback submission failed:', data.message);
+
+                // Show error feedback
+                const originalIcon = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-times"></i>';
+                button.style.borderColor = '#ef4444';
+
+                setTimeout(() => {
+                    button.innerHTML = originalIcon;
+                    button.style.borderColor = '';
+                }, 1500);
+            }
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+
+            // Show error feedback
+            const originalIcon = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            button.style.borderColor = '#ef4444';
+
+            setTimeout(() => {
+                button.innerHTML = originalIcon;
+                button.style.borderColor = '';
+            }, 1500);
+        } finally {
+            // Re-enable all feedback buttons for this message
+            const messageDiv = button.closest('.message');
+            const allFeedbackButtons = messageDiv.querySelectorAll('.feedback-btn');
+            allFeedbackButtons.forEach(btn => btn.disabled = false);
+        }
+    }
+
+    async function addMessage(text, type, isGeneratedResponse = false) {
         console.log('Adding message:', type, text);
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}-message`;
@@ -432,6 +533,10 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Store the current message index as a data attribute
         if (type === 'system') {
             messageDiv.dataset.messageIndex = messageIndex;
+            // Mark if this is a generated response for feedback purposes
+            if (isGeneratedResponse) {
+                messageDiv.dataset.isGenerated = 'true';
+            }
         }
 
         // Create icon container
@@ -498,20 +603,47 @@ document.addEventListener('DOMContentLoaded', async function() {
                         buttonContainer.remove();
                     }
 
+                    // Create button container for all system messages
+                    buttonContainer = document.createElement('div');
+                    buttonContainer.className = 'button-container';
+
                     // Add rollback button only if this is not the last system message
                     if (message !== lastSystemMessage) {
-                        buttonContainer = document.createElement('div');
-                        buttonContainer.className = 'button-container';
-
                         const rollbackButton = document.createElement('button');
                         rollbackButton.className = 'rollback-btn';
                         rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
                         const msgIndex = parseInt(message.dataset.messageIndex);
                         rollbackButton.onclick = () => handleRollback(msgIndex, rollbackButton);
-
                         buttonContainer.appendChild(rollbackButton);
-                        messageContent.appendChild(buttonContainer);
                     }
+
+                    // Add feedback buttons only for generated responses (not welcome messages)
+                    if (message.dataset.isGenerated === 'true') {
+                        const feedbackContainer = document.createElement('div');
+                        feedbackContainer.className = 'feedback-container';
+
+                        // Create thumbs up button
+                        const thumbsUpBtn = document.createElement('button');
+                        thumbsUpBtn.className = 'feedback-btn thumbs-up';
+                        thumbsUpBtn.innerHTML = '<i class="fas fa-thumbs-up"></i>';
+                        thumbsUpBtn.title = 'This response was helpful';
+                        thumbsUpBtn.setAttribute('aria-label', 'Mark as helpful');
+                        thumbsUpBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_up', thumbsUpBtn);
+
+                        // Create thumbs down button
+                        const thumbsDownBtn = document.createElement('button');
+                        thumbsDownBtn.className = 'feedback-btn thumbs-down';
+                        thumbsDownBtn.innerHTML = '<i class="fas fa-thumbs-down"></i>';
+                        thumbsDownBtn.title = 'This response was not helpful';
+                        thumbsDownBtn.setAttribute('aria-label', 'Mark as not helpful');
+                        thumbsDownBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_down', thumbsDownBtn);
+
+                        feedbackContainer.appendChild(thumbsUpBtn);
+                        feedbackContainer.appendChild(thumbsDownBtn);
+                        buttonContainer.appendChild(feedbackContainer);
+                    }
+
+                    messageContent.appendChild(buttonContainer);
                 }
             }
         } else {
@@ -552,18 +684,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         messageDiv.appendChild(iconDiv);
         messageDiv.appendChild(loadingDiv);
         conversationContainer.appendChild(messageDiv);
-        
+
         // Start trajectory polling when loading begins
         if (!window.trajectoryPollingInterval) {
             console.log("Starting trajectory polling during model generation");
-            window.trajectoryPollingInterval = setInterval(function() {
+            window.trajectoryPollingInterval = setInterval(function () {
                 // Call loadTrajectoryContent if it exists
                 if (typeof window.loadTrajectoryContent === 'function') {
                     window.loadTrajectoryContent();
                 }
             }, 5000); // Updated polling interval from 3 to 5 seconds
         }
-        
+
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
         return messageDiv;
     }
@@ -579,7 +711,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('Finished typeMessage');
     }
 
-    commandForm.addEventListener('submit', async function(e) {
+    commandForm.addEventListener('submit', async function (e) {
         e.preventDefault();
 
         // Prevent submitting multiple commands while waiting for a response
@@ -617,7 +749,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (loadingMessage) {
                 loadingMessage.remove();
                 loadingMessage = null;
-                
+
                 // Stop trajectory polling when generation is complete
                 if (window.trajectoryPollingInterval) {
                     console.log("Stopping trajectory polling after model generation");
@@ -628,7 +760,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (response.ok) {
                 // Add system response to conversation
-                addMessage(data.message, 'system');
+                addMessage(data.message, 'system', true);
 
                 // Update or reset 3D model
                 if (data.model) {
@@ -647,7 +779,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (loadingMessage) {
                 loadingMessage.remove();
                 loadingMessage = null;
-                
+
                 // Also stop trajectory polling on error
                 if (window.trajectoryPollingInterval) {
                     console.log("Stopping trajectory polling after error");
@@ -663,7 +795,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             updateCommandInputState(false);
         }
     });
-    
+
     // Function to update the command input state (disabled/enabled)
     function updateCommandInputState(disabled) {
         commandInput.disabled = disabled;
@@ -671,7 +803,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (submitButton) {
             submitButton.disabled = disabled;
         }
-        
+
         // Add visual indication that the input is disabled
         if (disabled) {
             commandInput.classList.add('waiting');
@@ -685,7 +817,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     }
-    
+
     // Function to show loading message without starting trajectory polling
     // Used for non-generative operations like new design and rollback
     function addLoadingMessageWithoutPolling() {
@@ -705,7 +837,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Create loading animation without starting polling
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'message-content loading-dots';
-        
+
         // Create three dots in a row with proper styling
         for (let i = 0; i < 3; i++) {
             const dot = document.createElement('span');
@@ -715,9 +847,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         messageDiv.appendChild(iconDiv);
         messageDiv.appendChild(loadingDiv);
         conversationContainer.appendChild(messageDiv);
-        
+
         // Unlike showLoadingMessage, we do NOT start trajectory polling here
-        
+
         conversationContainer.scrollTop = conversationContainer.scrollHeight;
         return messageDiv;
     }

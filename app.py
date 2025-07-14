@@ -142,6 +142,47 @@ def make_backend_request(endpoint, method="GET", data=None):
         return requests.get(url, params=params, headers=headers)
 
 
+def process_model_data(response_data):
+    """Process model data from backend response (new format with 'data' and 'format')."""
+    model_data_hex = response_data.get("data")
+
+    # Handle format field - if it's None or empty, default to "stl"
+    format_value = response_data.get("format")
+    if format_value is None or format_value == "":
+        model_format = "stl"
+    else:
+        model_format = format_value.lower()
+
+    if not model_data_hex:
+        return None
+
+    try:
+        # Convert hex back to binary
+        model_binary_data = bytes.fromhex(model_data_hex)
+
+        save_dir = "static/cadmodels"
+
+        # Determine file extension based on format
+        if model_format == "step":
+            file_extension = ".step"
+        else:
+            file_extension = ".stl"  # Default to STL
+
+        model_file_path = os.path.join(save_dir, f"model{file_extension}")
+
+        with open(model_file_path, "wb") as model_file:
+            model_file.write(model_binary_data)
+
+        if not os.path.exists(model_file_path):
+            logging.error(f"Model file not found at path: {model_file_path}")
+            return None
+
+        return {"type": model_format, "path": model_file_path}
+    except Exception as e:
+        logging.error(f"Error processing model data: {str(e)}")
+        return None
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -164,9 +205,14 @@ def serve_cad_file(filename):
     response.headers["Access-Control-Allow-Methods"] = "GET"
     response.headers["Access-Control-Allow-Headers"] = "*"
 
-    # Set proper content type for STEP files
+    # Set proper content type based on file extension
     if filename.lower().endswith(".step") or filename.lower().endswith(".stp"):
         response.headers["Content-Type"] = "application/step"
+    elif filename.lower().endswith(".stl"):
+        response.headers["Content-Type"] = "application/sla"
+    else:
+        # Default to binary for unknown CAD file types
+        response.headers["Content-Type"] = "application/octet-stream"
 
     return response
 
@@ -183,52 +229,27 @@ def generate_cad():
         response = make_backend_request("process-prompt", "POST", {"prompt": command})
         response_data = response.json()
 
-        # Extract response text and STL data
+        # Extract response text and model data
         answer_text = response_data.get(
             "response", "There was an error processing your request."
         )
-        stl_data_hex = response_data.get("stl_data")
 
         # Update trajectory with the AI's response
         update_trajectory_with_ai_response(answer_text)
 
-        # If no STL data is received, still respond with a message but signal to reset the viewer
-        if not stl_data_hex:
-            logging.info("No STL data received from backend")
+        # Process model data using new format (data + format)
+        model_info = process_model_data(response_data)
+
+        if not model_info:
+            logging.info("No model data received from backend")
             response = {
                 "message": answer_text,
                 "reset_viewer": True,  # Signal to the frontend to reset/clear the 3D viewer
             }
-            return jsonify(response)
-
-        # If we have STL data, process it as before
-        try:
-            # Convert hex back to binary
-            stl_binary_data = bytes.fromhex(stl_data_hex)
-
-            save_dir = "static/cadmodels"
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            stl_file_path = os.path.join(save_dir, "model.stl")
-
-            with open(stl_file_path, "wb") as stl_file:
-                stl_file.write(stl_binary_data)
-
-            if not os.path.exists(stl_file_path):
-                logging.error(f"STL file not found at path: {stl_file_path}")
-                response = {
-                    "message": answer_text,
-                    "reset_viewer": True,  # Signal to reset viewer if file couldn't be saved
-                }
-            else:
-                response = {
-                    "message": answer_text,
-                    "model": {"type": "stl", "path": stl_file_path},
-                }
-        except Exception as e:
-            logging.error(f"Error processing STL data: {str(e)}")
+        else:
             response = {
                 "message": answer_text,
-                "reset_viewer": True,  # Signal to reset viewer if STL processing failed
+                "model": model_info,
             }
         return jsonify(response)
     except Exception as e:
@@ -292,7 +313,6 @@ def new_design():
             )
 
         response_data = response.json()
-        logging.debug(f"Response data: {response_data}")
 
         # Get the response message from the backend
         answer_text = response_data.get("response")
@@ -311,32 +331,19 @@ def new_design():
         # Store the response in the trajectory
         update_trajectory_with_ai_response(answer_text)
 
-        # Check if we need an early return (no STL data or special cases)
+        # Check if we need an early return (no model data or special cases)
         if response_data and response_data.get("response") == "Completed":
             return jsonify({"status": "success", "message": answer_text})
 
-        stl_data_hex = response_data.get("stl_data")
+        # Process model data using new format (data + format)
+        model_info = process_model_data(response_data)
 
-        if stl_data_hex:
-            # Convert hex back to binary
-            stl_binary_data = bytes.fromhex(stl_data_hex)
-
-            save_dir = "static/cadmodels"
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            stl_file_path = os.path.join(save_dir, "model.stl")
-
-            with open(stl_file_path, "wb") as stl_file:
-                stl_file.write(stl_binary_data)
-
-            if not os.path.exists(stl_file_path):
-                logging.error(f"STL file not found at path: {stl_file_path}")
-                return jsonify({"error": "STL file not found"}), 404
-
+        if model_info:
             return jsonify(
                 {
                     "status": "success",
                     "message": answer_text,
-                    "model": {"type": "stl", "path": stl_file_path},
+                    "model": model_info,
                 }
             )
 
@@ -355,12 +362,11 @@ def get_app_config():
         response = make_backend_request("init")
         if response.ok:
             response_data = response.json()
-            # The backend returns a list of design types, welcome message, and possibly STL data
+            # The backend returns a list of design types, welcome message, and possibly model data
             backend_design_types = response_data.get("design_types", [])
             welcome_message = response_data.get(
                 "message", "Welcome to Morfis - AI CAD Agent"
             )
-            stl_data_hex = response_data.get("stl_data")
 
             logging.debug(f"Backend init response: {response_data}")
 
@@ -383,28 +389,16 @@ def get_app_config():
             config = {
                 "design_types": formatted_design_types,
                 "welcome_message": welcome_message,
+                "advanced_viewer": (
+                    os.environ.get("ADVANCED_VIEWER", "true").lower() == "true"
+                ),
             }
 
-            # Process STL data if available
-            if stl_data_hex:
-                try:
-                    # Convert hex back to binary
-                    stl_binary_data = bytes.fromhex(stl_data_hex)
-
-                    save_dir = "static/cadmodels"
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    stl_file_path = os.path.join(save_dir, "model.stl")
-
-                    with open(stl_file_path, "wb") as stl_file:
-                        stl_file.write(stl_binary_data)
-
-                    if os.path.exists(stl_file_path):
-                        # Add the model information to the configuration
-                        config["model"] = {"type": "stl", "path": stl_file_path}
-                    else:
-                        logging.error(f"STL file not found at path: {stl_file_path}")
-                except Exception as e:
-                    logging.error(f"Error processing STL data: {str(e)}")
+            # Process model data using new format (data + format)
+            model_info = process_model_data(response_data)
+            if model_info:
+                # Add the model information to the configuration
+                config["model"] = model_info
 
             return jsonify(config)
         else:
@@ -412,6 +406,9 @@ def get_app_config():
             config = {
                 "design_types": DEFAULT_DESIGN_TYPES,
                 "welcome_message": "Welcome to Morfis - AI CAD Agent",
+                "advanced_viewer": (
+                    os.environ.get("ADVANCED_VIEWER", "true").lower() == "true"
+                ),
             }
             return jsonify(config)
     except Exception as e:
@@ -421,6 +418,9 @@ def get_app_config():
             {
                 "design_types": DEFAULT_DESIGN_TYPES,
                 "welcome_message": "Welcome to Morfis - AI CAD Agent",
+                "advanced_viewer": (
+                    os.environ.get("ADVANCED_VIEWER", "true").lower() == "true"
+                ),
             }
         )
 
@@ -434,7 +434,6 @@ def get_trajectory_html():
     try:
         # Try to get trajectory data from the backend
         backend_data = None
-
         try:
             response = make_backend_request("trajectory")
             if response.ok:
@@ -692,31 +691,19 @@ def rollback():
         response_message = response_data.get(
             "response", "Rolled back to previous state"
         )
-        stl_data_hex = response_data.get("stl_data")
 
         # Create basic response with at least a status and message
         result = {"status": "success", "message": response_message}
 
-        # If we have STL data, process it
-        if stl_data_hex:
-            # Convert hex back to binary
-            stl_binary_data = bytes.fromhex(stl_data_hex)
+        # Process model data using new format (data + format)
+        model_info = process_model_data(response_data)
 
-            save_dir = "static/cadmodels"
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            stl_file_path = os.path.join(save_dir, "model.stl")
-
-            with open(stl_file_path, "wb") as stl_file:
-                stl_file.write(stl_binary_data)
-
-            if os.path.exists(stl_file_path):
-                # Add model information to the response
-                result["model"] = {"type": "stl", "path": stl_file_path}
-            else:
-                logging.error(f"STL file not found at path: {stl_file_path}")
+        if model_info:
+            # Add model information to the response
+            result["model"] = model_info
         else:
-            # No STL data, but this is not an error - just add a note to the result
-            logging.info("No STL data in rollback response - will reset 3D view")
+            # No model data, but this is not an error - just add a note to the result
+            logging.info("No model data in rollback response - will reset 3D view")
             result["reset_viewer"] = True
 
         return jsonify(result)
@@ -766,6 +753,87 @@ def get_session_stats():
     except Exception as e:
         logging.error(f"Error getting session stats: {str(e)}")
         return jsonify({"error": "Failed to get session statistics"}), 500
+
+
+@app.route("/api/feedback", methods=["POST"])
+def submit_feedback():
+    """Handle feedback submission for AI responses."""
+    try:
+        data = request.json
+
+        # Validate required fields
+        message_index = data.get("message_index")
+        feedback_type = data.get("feedback_type")  # "thumbs_up" or "thumbs_down"
+
+        if message_index is None:
+            return (
+                jsonify({"status": "error", "message": "Message index is required"}),
+                400,
+            )
+
+        if feedback_type not in ["thumbs_up", "thumbs_down"]:
+            return jsonify({"status": "error", "message": "Invalid feedback type"}), 400
+
+        # Send feedback to backend
+        try:
+            response = make_backend_request(
+                "feedback",
+                "POST",
+                {
+                    "message_index": message_index,
+                    "feedback_type": feedback_type,
+                    "timestamp": datetime.datetime.now().isoformat(),
+                },
+            )
+
+            if response.ok:
+                logging.info(
+                    f"Feedback submitted: {feedback_type} for message {message_index}"
+                )
+                return jsonify(
+                    {"status": "success", "message": "Feedback submitted successfully"}
+                )
+            else:
+                error_message = f"Backend returned error: {response.status_code}"
+                if response.text:
+                    try:
+                        error_data = response.json()
+                        if "message" in error_data:
+                            error_message = error_data["message"]
+                    except:
+                        error_message = response.text[:100]
+
+                logging.error(f"Error submitting feedback to backend: {error_message}")
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": f"Failed to submit feedback: {error_message}",
+                        }
+                    ),
+                    response.status_code,
+                )
+
+        except Exception as e:
+            logging.error(f"Error connecting to backend for feedback: {str(e)}")
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Failed to connect to backend: {str(e)}",
+                    }
+                ),
+                500,
+            )
+
+    except Exception as e:
+        logging.error(f"Error processing feedback request: {str(e)}")
+        return (
+            jsonify(
+                {"status": "error", "message": f"Failed to process feedback: {str(e)}"}
+            ),
+            500,
+        )
 
 
 if __name__ == "__main__":

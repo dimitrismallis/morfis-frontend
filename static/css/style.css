@@ -517,7 +517,8 @@ button.waiting {
 /* Make icons the same size */
 #trajectoryBtn i,
 #newDesignBtn i,
-#saveDesignBtn i {
+#saveDesignBtn i,
+#downloadModelBtn i {
     font-size: 14px;
     width: 14px;
     height: 14px;
@@ -554,6 +555,28 @@ button.waiting {
 #newDesignBtn:focus {
     background-color: #2d2d30 !important;
     /* Slightly lighter shade of black on hover */
+}
+
+#downloadModelBtn {
+    background-color: #007bff !important;
+    /* Blue color for download button */
+}
+
+#downloadModelBtn:hover,
+#downloadModelBtn:focus {
+    background-color: #0056b3 !important;
+    /* Darker blue on hover */
+}
+
+#downloadModelBtn:disabled {
+    background-color: #6c757d !important;
+    /* Gray when disabled */
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+#downloadModelBtn.hidden {
+    display: none !important;
 }
 
 /* Save Design Modal Styles */
@@ -609,11 +632,10 @@ button.waiting {
 }
 
 .button-container {
-    margin-top: 8px;
-    padding: 0;
-    padding-top: 8px;
+    margin-top: 16px;
     display: flex;
-    justify-content: center;
+    gap: 8px;
+    align-items: center;
 }
 
 .rollback-btn {
@@ -656,7 +678,178 @@ button.waiting {
 }
 
 .rollback-btn i {
+    margin-right: 4px;
+}
+
+/* Feedback buttons styling */
+.feedback-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: auto;
+    /* Push to the right side */
+    opacity: 0;
+    animation: feedback-fade-in 0.5s ease-out 0.3s forwards;
+    transition: opacity 0.2s ease;
+}
+
+.feedback-container:hover {
+    opacity: 1 !important;
+}
+
+@keyframes feedback-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 0.7;
+        transform: translateY(0);
+    }
+}
+
+.feedback-btn {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1.5px solid #e2e6ea;
+    border-radius: 20px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #6c757d;
+    min-width: 40px;
+    height: 32px;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.feedback-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.5s ease;
+}
+
+.feedback-btn:hover {
+    transform: translateY(-1px) scale(1.05);
+    border-color: #ced4da;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: linear-gradient(135deg, #ffffff 0%, #f1f3f4 100%);
+}
+
+.feedback-btn:hover::before {
+    left: 100%;
+}
+
+.feedback-btn:active {
+    transform: translateY(0) scale(0.98);
+    transition: transform 0.1s ease;
+}
+
+.feedback-btn.active {
+    transform: translateY(-1px) scale(1.05);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    border-width: 2px;
+}
+
+.feedback-btn.thumbs-up.active {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border-color: #15803d;
+    color: white;
+    box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+}
+
+.feedback-btn.thumbs-down.active {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-color: #b91c1c;
+    color: white;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+.feedback-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+}
+
+.feedback-btn i {
     font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.feedback-btn:hover i {
+    transform: scale(1.1);
+}
+
+.feedback-btn.active i {
+    transform: scale(1.15);
+}
+
+/* Add a subtle pulse animation for active feedback buttons */
+.feedback-btn.active {
+    animation: feedback-pulse 2s ease-in-out;
+}
+
+@keyframes feedback-pulse {
+    0% {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    100% {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+}
+
+.feedback-btn.thumbs-up.active {
+    animation: feedback-pulse-green 2s ease-in-out;
+}
+
+.feedback-btn.thumbs-down.active {
+    animation: feedback-pulse-red 2s ease-in-out;
+}
+
+@keyframes feedback-pulse-green {
+    0% {
+        box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 6px 20px rgba(34, 197, 94, 0.6);
+    }
+
+    100% {
+        box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+    }
+}
+
+@keyframes feedback-pulse-red {
+    0% {
+        box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+    }
+
+    100% {
+        box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+    }
 }
 
 .dropdown-menu {

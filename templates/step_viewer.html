@@ -586,8 +586,8 @@
                         targetRotation.yaw += deltaX * sensitivity;
                         targetRotation.pitch -= deltaY * sensitivity;
 
-                        // Clamp pitch to prevent gimbal lock issues
-                        targetRotation.pitch = Math.max(-85, Math.min(85, targetRotation.pitch));
+                        // Allow full vertical rotation without clamping
+                        // No pitch constraints - enable full 360-degree rotation freedom
 
                         // Normalize yaw to 0-360 range
                         targetRotation.yaw = ((targetRotation.yaw % 360) + 360) % 360;
@@ -631,10 +631,9 @@
             const degZ = rotZ * 180 / Math.PI;
 
             // Apply rotation with proper coordinate system mapping
-            // Invert Y to match the 3D viewer's coordinate system
-            // Add small offset to match initial viewer orientation
-            const finalX = -degX;  // Invert pitch
-            const finalY = degY;   // Keep yaw as-is
+            // Fix: Remove inversions to make axis cube rotate in same direction as model
+            const finalX = degX;   // Don't invert pitch
+            const finalY = -degY;  // Invert yaw to match camera movement
             const finalZ = degZ;   // Keep roll as-is
 
             axisCube.style.transform = `rotateX(${finalX}deg) rotateY(${finalY}deg) rotateZ(${finalZ}deg)`;

@@ -16,10 +16,28 @@ function initViewer() {
     renderer.setSize(window.innerWidth / 2, window.innerHeight);
     document.getElementById('modelViewer').appendChild(renderer.domElement);
 
-    // Controls setup
+    // Controls setup - Using OrbitControls with unlimited rotation settings
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+
+    // Configure for unlimited rotation - this is the key fix
+    controls.minPolarAngle = 0; // Allow full vertical rotation  
+    controls.maxPolarAngle = Math.PI; // Allow 180° vertical (orbit style)
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.enablePan = true;
+
+    // Remove azimuth constraints for full horizontal rotation
+    // Don't set minAzimuthAngle or maxAzimuthAngle for 360° horizontal rotation
+
+    // Smooth rotation behavior
+    controls.rotateSpeed = 1.0;
+    controls.zoomSpeed = 1.2;
+    controls.panSpeed = 0.8;
+
+    // Set target at origin for proper rotation center
+    controls.target.set(0, 0, 0);
 
     // Soft Lighting - Higher ambient, lower directional for softer feel
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.1); // Higher ambient light for overall softness
@@ -266,7 +284,8 @@ function animate() {
     // Update the axis helper to match the main scene rotation
     if (axisHelper) {
         // Copy the camera's quaternion to rotate the axis helper the same way as the scene
-        axisHelper.quaternion.copy(camera.quaternion).invert();
+        // Remove .invert() to make axis cube rotate in the same direction as the model
+        axisHelper.quaternion.copy(camera.quaternion);
 
         // Render the axis scene
         axisRenderer.render(axisScene, axisCamera);
@@ -277,6 +296,8 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / 2 / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth / 2, window.innerHeight);
+
+    // OrbitControls don't need special resize handling
 
     // We don't need to resize the axis renderer as it has a fixed size
 }
