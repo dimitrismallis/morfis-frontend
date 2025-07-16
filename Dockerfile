@@ -8,7 +8,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Heroku CLI
+RUN curl https://cli-assets.heroku.com/install.sh | sh
 
 # Copy requirements first for better caching
 COPY requirements.txt .
