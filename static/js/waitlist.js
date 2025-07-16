@@ -1,9 +1,36 @@
 // Waitlist join functionality
-document.addEventListener('DOMContentLoaded', function() {
+
+// Helper function to add timeout to fetch requests
+function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    const fetchOptions = {
+        ...options,
+        signal: controller.signal
+    };
+
+    return fetch(url, fetchOptions)
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response;
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+            }
+            throw error;
+        });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
     const joinWaitlistBtn = document.getElementById('joinWaitlistBtn');
-    
+
     if (joinWaitlistBtn) {
-        joinWaitlistBtn.addEventListener('click', function() {
+        joinWaitlistBtn.addEventListener('click', function () {
             // Create waitlist form modal
             const modalEl = document.createElement('div');
             modalEl.className = 'waitlist-modal';
@@ -38,26 +65,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     </form>
                 </div>
             `;
-            
+
             // Add modal to the body
             document.body.appendChild(modalEl);
-            
+
             // After a short delay, add the 'show' class to animate in
             setTimeout(() => {
                 modalEl.classList.add('show');
             }, 10);
-            
+
             // Add cancel button functionality
             const cancelBtn = modalEl.querySelector('.cancel-btn');
-            cancelBtn.addEventListener('click', function() {
+            cancelBtn.addEventListener('click', function () {
                 closeModal(modalEl);
             });
-            
+
             // Add form submission handler
             const waitlistForm = modalEl.querySelector('#waitlistForm');
-            waitlistForm.addEventListener('submit', function(e) {
+            waitlistForm.addEventListener('submit', function (e) {
                 e.preventDefault();
-                
+
                 // Get form data
                 const formData = {
                     firstName: waitlistForm.firstName.value.trim(),
@@ -66,52 +93,57 @@ document.addEventListener('DOMContentLoaded', function() {
                     organization: waitlistForm.organization.value.trim(),
                     consent: waitlistForm.consent.checked
                 };
-                
+
                 // Show loading state
                 const submitBtn = waitlistForm.querySelector('.submit-btn');
                 const originalText = submitBtn.textContent;
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Submitting...';
-                
+
                 // Submit form data
-                fetch('/api/waitlist', {
+                fetchWithTimeout('/api/waitlist', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(formData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Close the form modal
-                    closeModal(modalEl);
-                    
-                    // Show success message
-                    showResultMessage(data.success, data.message);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showResultMessage(false, 'An error occurred. Please try again.');
-                })
-                .finally(() => {
-                    // Reset button state
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
-                });
+                }, 15000) // 15 seconds timeout
+                    .then(response => response.json())
+                    .then(data => {
+                        // Close the form modal
+                        closeModal(modalEl);
+
+                        // Show success message
+                        showResultMessage(data.success, data.message);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Handle timeout errors with specific message
+                        if (error.message.includes('timed out')) {
+                            showResultMessage(false, 'Request timed out. Please check your connection and try again.');
+                        } else {
+                            showResultMessage(false, 'An error occurred. Please try again.');
+                        }
+                    })
+                    .finally(() => {
+                        // Reset button state
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    });
             });
         });
     }
-    
+
     // Helper function to close modal with animation
     function closeModal(modalEl) {
         modalEl.classList.remove('show');
-        
+
         // Remove from DOM after animation completes
         setTimeout(() => {
             document.body.removeChild(modalEl);
         }, 300);
     }
-    
+
     // Helper function to show result message
     function showResultMessage(success, message) {
         const alertEl = document.createElement('div');
@@ -123,20 +155,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button class="alert-close-btn">Close</button>
             </div>
         `;
-        
+
         // Add alert to the body
         document.body.appendChild(alertEl);
-        
+
         // After a short delay, add the 'show' class to animate in
         setTimeout(() => {
             alertEl.classList.add('show');
         }, 10);
-        
+
         // Add close button functionality
         const closeBtn = alertEl.querySelector('.alert-close-btn');
-        closeBtn.addEventListener('click', function() {
+        closeBtn.addEventListener('click', function () {
             alertEl.classList.remove('show');
-            
+
             // Remove from DOM after animation completes
             setTimeout(() => {
                 document.body.removeChild(alertEl);

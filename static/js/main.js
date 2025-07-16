@@ -1,4 +1,31 @@
 // Function to initialize the main Morfis application
+
+// Helper function to add timeout to fetch requests
+function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    const fetchOptions = {
+        ...options,
+        signal: controller.signal
+    };
+
+    return fetch(url, fetchOptions)
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response;
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+            }
+            throw error;
+        });
+}
+
 async function initializeMorfisApp() {
     // Generate or retrieve tab-specific ID for independent sessions per tab
     // Use Broadcast Channel API to detect duplicate tabs
@@ -176,7 +203,7 @@ async function initializeMorfisApp() {
 
     // Fetch app configuration (design types) at startup
     try {
-        const response = await fetch('/api/config');
+        const response = await fetchWithTimeout('/api/config', {}, 10000);
         if (!response.ok) {
             throw new Error('Failed to fetch app configuration');
         }
@@ -228,6 +255,10 @@ async function initializeMorfisApp() {
         }
     } catch (error) {
         console.error('Error loading app configuration:', error);
+        // Handle timeout errors specifically
+        if (error.message.includes('timed out')) {
+            console.log('Configuration request timed out - using fallback...');
+        }
         // Fallback to default items if API fails
     }
 
@@ -266,13 +297,13 @@ async function initializeMorfisApp() {
             const loadingMsg = addLoadingMessageWithoutPolling();
 
             // Call backend
-            const response = await fetch('/new_design', {
+            const response = await fetchWithTimeout('/new_design', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ type: designType })
-            });
+            }, 15000);
 
             // Remove loading message
             if (loadingMsg) {
@@ -300,7 +331,12 @@ async function initializeMorfisApp() {
 
         } catch (error) {
             console.error('Error:', error);
-            addMessage(`Error: Failed to start ${designType} design`, 'system error');
+            // Handle timeout errors with user-friendly messages
+            if (error.message.includes('timed out')) {
+                addMessage(`Error: Request timed out while starting ${designType} design. Please try again.`, 'system error');
+            } else {
+                addMessage(`Error: Failed to start ${designType} design`, 'system error');
+            }
         } finally {
             // Reset waiting state and enable input
             isWaitingForResponse = false;
@@ -347,13 +383,13 @@ async function initializeMorfisApp() {
             button.classList.add('loading');
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rolling back...';
 
-            const response = await fetch('/rollback', {
+            const response = await fetchWithTimeout('/rollback', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ message_index: targetIndex })
-            });
+            }, 15000);
 
             const data = await response.json();
 
@@ -367,26 +403,40 @@ async function initializeMorfisApp() {
                     clearModel();
                 }
 
-                // Find and remove all messages after the target index
-                const messages = conversationContainer.getElementsByClassName('message');
-                const messagesToRemove = [];
+                // Find the target system message and remove all messages after it
+                const messages = Array.from(conversationContainer.getElementsByClassName('message'));
+                let targetSystemMessage = null;
 
+                // Find the target system message
                 for (let message of messages) {
                     if (message.classList.contains('system-message')) {
                         const messageIndex = parseInt(message.dataset.messageIndex);
-                        if (messageIndex > targetIndex) {
-                            messagesToRemove.push(message);
+                        if (messageIndex === targetIndex) {
+                            targetSystemMessage = message;
+                            break;
                         }
                     }
                 }
 
-                // Remove the messages (do this after the loop to avoid live collection issues)
-                messagesToRemove.forEach(message => message.remove());
+                if (targetSystemMessage) {
+                    // Find the position of the target message
+                    const targetPosition = messages.indexOf(targetSystemMessage);
 
-                // Add the AI's response to the conversation
-                addMessage(data.message, 'system', true);
+                    // Remove all messages that come after the target (both user and system)
+                    const messagesToRemove = messages.slice(targetPosition + 1);
+                    messagesToRemove.forEach(message => message.remove());
 
+                    console.log(`Removed ${messagesToRemove.length} messages after rollback point`);
+                } else {
+                    console.error(`Target system message with index ${targetIndex} not found`);
+                }
+
+                // Don't add any rollback completion message - just silently complete the rollback
                 console.log(`Successfully rolled back to message ${targetIndex}`);
+
+                // Reset button state after successful rollback
+                button.classList.remove('loading');
+                button.innerHTML = '<i class="fas fa-history"></i> Rollback here';
             } else {
                 console.error('Rollback failed:', data.error);
                 // Restore button state on error
@@ -395,6 +445,10 @@ async function initializeMorfisApp() {
             }
         } catch (error) {
             console.error('Error during rollback:', error);
+            // Handle timeout errors with user feedback
+            if (error.message.includes('timed out')) {
+                addMessage('Error: Rollback request timed out. Please try again.', 'system error');
+            }
             // Restore button state on error
             button.classList.remove('loading');
             button.innerHTML = '<i class="fas fa-history"></i> Rollback here';
@@ -419,7 +473,7 @@ async function initializeMorfisApp() {
             const allFeedbackButtons = messageDiv.querySelectorAll('.feedback-btn');
             allFeedbackButtons.forEach(btn => btn.disabled = true);
 
-            const response = await fetch('/api/feedback', {
+            const response = await fetchWithTimeout('/api/feedback', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -428,7 +482,7 @@ async function initializeMorfisApp() {
                     message_index: messageIndex,
                     feedback_type: feedbackType
                 })
-            });
+            }, 15000);
 
             const data = await response.json();
 
@@ -508,6 +562,12 @@ async function initializeMorfisApp() {
             }
         } catch (error) {
             console.error('Error submitting feedback:', error);
+
+            // Handle timeout errors specifically
+            if (error.message.includes('timed out')) {
+                console.warn('Feedback submission timed out');
+                // Still show error visual feedback but don't add chat message for feedback timeouts
+            }
 
             // Show error feedback
             const originalIcon = button.innerHTML;
@@ -599,8 +659,15 @@ async function initializeMorfisApp() {
                     const messageContent = message.querySelector('.message-content');
                     let buttonContainer = messageContent.querySelector('.button-container');
 
-                    // Remove existing button container if it exists
+                    // Save feedback state before removing container
+                    let feedbackState = null;
                     if (buttonContainer) {
+                        const thumbsUpBtn = buttonContainer.querySelector('.feedback-btn.thumbs-up');
+                        const thumbsDownBtn = buttonContainer.querySelector('.feedback-btn.thumbs-down');
+                        feedbackState = {
+                            thumbsUp: thumbsUpBtn ? thumbsUpBtn.classList.contains('active') : false,
+                            thumbsDown: thumbsDownBtn ? thumbsDownBtn.classList.contains('active') : false
+                        };
                         buttonContainer.remove();
                     }
 
@@ -608,12 +675,12 @@ async function initializeMorfisApp() {
                     buttonContainer = document.createElement('div');
                     buttonContainer.className = 'button-container';
 
-                    // Add rollback button only if this is not the last system message
-                    if (message !== lastSystemMessage) {
+                    // Add rollback button only if this is not the last system message and not the first message
+                    const msgIndex = parseInt(message.dataset.messageIndex);
+                    if (message !== lastSystemMessage && msgIndex > 0) {
                         const rollbackButton = document.createElement('button');
                         rollbackButton.className = 'rollback-btn';
                         rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
-                        const msgIndex = parseInt(message.dataset.messageIndex);
                         rollbackButton.onclick = () => handleRollback(msgIndex, rollbackButton);
                         buttonContainer.appendChild(rollbackButton);
                     }
@@ -638,6 +705,16 @@ async function initializeMorfisApp() {
                         thumbsDownBtn.title = 'This response was not helpful';
                         thumbsDownBtn.setAttribute('aria-label', 'Mark as not helpful');
                         thumbsDownBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_down', thumbsDownBtn);
+
+                        // Restore feedback state if it was previously set
+                        if (feedbackState) {
+                            if (feedbackState.thumbsUp) {
+                                thumbsUpBtn.classList.add('active');
+                            }
+                            if (feedbackState.thumbsDown) {
+                                thumbsDownBtn.classList.add('active');
+                            }
+                        }
 
                         feedbackContainer.appendChild(thumbsUpBtn);
                         feedbackContainer.appendChild(thumbsDownBtn);
@@ -736,13 +813,13 @@ async function initializeMorfisApp() {
         loadingMessage = showLoadingMessage();
 
         try {
-            const response = await fetch('/generate', {
+            const response = await fetchWithTimeout('/generate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ command: command })
-            });
+            }, 180000); // 3 minutes timeout for generation
 
             const data = await response.json();
 
@@ -789,7 +866,13 @@ async function initializeMorfisApp() {
                 }
             }
             console.error('Error:', error);
-            addMessage('Error: Failed to process command', 'system error');
+
+            // Handle timeout errors with user-friendly messages
+            if (error.message.includes('timed out')) {
+                addMessage('Error: Request timed out. The server may be busy - please try again.', 'system error');
+            } else {
+                addMessage('Error: Failed to process command', 'system error');
+            }
         } finally {
             // Reset waiting state and enable input
             isWaitingForResponse = false;

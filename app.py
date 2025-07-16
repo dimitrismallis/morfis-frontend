@@ -1,20 +1,23 @@
 import logging
 import os
-import time
+import uuid
+from datetime import datetime, timedelta
 
 import requests
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask_sqlalchemy import SQLAlchemy
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-import datetime
-import json
-import uuid
 
-from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "your-secret-key-here"
+
+# Session configuration for authentication requirements
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)  # 1 hour timeout
+# Use session cookies (expire on browser close)
+app.config['SESSION_PERMANENT'] = False
 
 # Configure database
 database_url = os.environ.get("DATABASE_URL")
@@ -48,11 +51,30 @@ def check_password_protection():
     if request.endpoint in ["login", "logout", "static"]:
         return
 
+    # Check session timeout (1 hour of inactivity)
+    if session.get("authenticated"):
+        login_time = session.get("login_time")
+        if login_time:
+            try:
+                login_dt = datetime.fromisoformat(login_time)
+                if datetime.utcnow() - login_dt > timedelta(hours=1):
+                    # Session expired, clear it
+                    session.pop("authenticated", None)
+                    session.pop("login_time", None)
+            except (ValueError, TypeError):
+                # Invalid login_time, clear session
+                session.pop("authenticated", None)
+                session.pop("login_time", None)
+        else:
+            # Update login_time if not set (for existing sessions)
+            session["login_time"] = datetime.utcnow().isoformat()
+
     # For API endpoints and POST requests, block if not authenticated
     if not session.get("authenticated"):
         # Block all API endpoints
         if request.endpoint and (
-            request.endpoint.startswith("api/") or request.endpoint.startswith("get_")
+            request.endpoint.startswith(
+                "api/") or request.endpoint.startswith("get_")
         ):
             return jsonify({"error": "Authentication required"}), 401
 
@@ -83,13 +105,21 @@ def check_password_protection():
 @app.route("/login", methods=["POST"])
 def login():
     """Handle user login with password protection."""
-    password = request.form.get("password", "")
+    # Handle both form data and JSON requests
+    if request.is_json:
+        password = request.json.get("password", "")
+    else:
+        password = request.form.get("password", "")
     if password == SITE_PASSWORD:
         session["authenticated"] = True
-        session.permanent = True  # Keep login across browser sessions
+        session["login_time"] = datetime.utcnow().isoformat()
+        # Explicitly set session.permanent = False to ensure session cookies
+        # expire on browser close
+        session.permanent = False
 
         # Return success response for AJAX request
-        if request.headers.get("Content-Type") == "application/json" or request.is_json:
+        if (request.headers.get("Content-Type") == "application/json" or
+                request.is_json):
             return jsonify({"success": True})
 
         # Redirect to originally requested page or home
@@ -99,7 +129,8 @@ def login():
         return redirect(url_for("index"))
     else:
         # Return error response for AJAX request
-        if request.headers.get("Content-Type") == "application/json" or request.is_json:
+        if (request.headers.get("Content-Type") == "application/json" or
+                request.is_json):
             return jsonify({"success": False, "error": "Invalid password"})
 
         return redirect(url_for("index", error="Invalid password"))
@@ -109,14 +140,16 @@ def login():
 def logout():
     """Handle user logout."""
     session.pop("authenticated", None)
+    session.pop("login_time", None)
     return redirect(url_for("index"))
 
 
-backend_url = "https://morfis.ngrok.app"
+backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 # Default design types for fallback
 DEFAULT_DESIGN_TYPES = [
-    {"id": "empty", "name": "Empty Design", "description": "Start with a blank design"},
+    {"id": "empty", "name": "Empty Design",
+        "description": "Start with a blank design"},
     {
         "id": "coffee_table",
         "name": "Coffee Table",
@@ -152,7 +185,8 @@ def get_session_id():
                 )
             except Exception as e:
                 # Gracefully handle database errors for debugging
-                logging.debug(f"Database not available for session tracking: {str(e)}")
+                logging.debug(
+                    f"Database not available for session tracking: {str(e)}")
                 logging.info(
                     f"Created new tab session (no DB): {session[session_key]} for tab: {tab_id}"
                 )
@@ -174,12 +208,15 @@ def get_session_id():
                 )
                 db.session.add(user_session)
                 db.session.commit()
-                logging.info(f"Created new browser session: {session['session_id']}")
+                logging.info(
+                    f"Created new browser session: {session['session_id']}")
             except Exception as e:
                 # Gracefully handle database errors for debugging
-                logging.debug(f"Database not available for session tracking: {str(e)}")
+                logging.debug(
+                    f"Database not available for session tracking: {str(e)}")
                 logging.info(
-                    f"Created new browser session (no DB): {session['session_id']}"
+                    f"Created new browser session (no DB): "
+                    f"{session['session_id']}"
                 )
 
         return session["session_id"]
@@ -188,16 +225,22 @@ def get_session_id():
 def update_session_activity():
     """Update the current session's last activity timestamp."""
     try:
+        # Update authentication activity time for inactivity timeout
+        if session.get("authenticated"):
+            session["login_time"] = datetime.utcnow().isoformat()
+
         session_id = session.get("session_id")
         if session_id:
             from models import UserSession
 
-            user_session = UserSession.query.filter_by(session_id=session_id).first()
+            user_session = UserSession.query.filter_by(
+                session_id=session_id).first()
             if user_session:
                 user_session.update_activity()
     except Exception as e:
         # Gracefully handle database errors for debugging
-        logging.debug(f"Database not available for session activity update: {str(e)}")
+        logging.debug(
+            f"Database not available for session activity update: {str(e)}")
 
 
 def make_backend_request(endpoint, method="GET", data=None):
@@ -309,7 +352,8 @@ def generate_cad():
         # This is for displaying in the trajectory view
         update_trajectory_with_user_command(command)
 
-        response = make_backend_request("process-prompt", "POST", {"prompt": command})
+        response = make_backend_request(
+            "process-prompt", "POST", {"prompt": command})
         response_data = response.json()
 
         # Extract response text and model data
@@ -347,7 +391,7 @@ current_trajectory = {"messages": []}
 
 def update_trajectory_with_user_command(command):
     """Add a user command to the trajectory data."""
-    timestamp = datetime.datetime.now().isoformat()
+    timestamp = datetime.now().isoformat()
     current_trajectory["messages"].append(
         {"type": "user", "content": command, "timestamp": timestamp}
     )
@@ -355,7 +399,7 @@ def update_trajectory_with_user_command(command):
 
 def update_trajectory_with_ai_response(response):
     """Add an AI response to the trajectory data."""
-    timestamp = datetime.datetime.now().isoformat()
+    timestamp = datetime.now().isoformat()
     current_trajectory["messages"].append(
         {"type": "system", "content": response, "timestamp": timestamp}
     )
@@ -379,7 +423,8 @@ def new_design():
         update_trajectory_with_user_command(command)
 
         # Call the backend API
-        response = make_backend_request("reset", "POST", {"prompt": design_type})
+        response = make_backend_request(
+            "reset", "POST", {"prompt": design_type})
 
         if not response.ok:
             logging.error(
@@ -647,7 +692,8 @@ def save_design():
                             :100
                         ]  # Truncate long error messages
 
-                logging.error(f"Error saving design to backend: {error_message}")
+                logging.error(
+                    f"Error saving design to backend: {error_message}")
                 return (
                     jsonify(
                         {
@@ -673,7 +719,8 @@ def save_design():
     except Exception as e:
         logging.error(f"Error processing save design request: {str(e)}")
         return (
-            jsonify({"status": "error", "message": f"Failed to save design: {str(e)}"}),
+            jsonify(
+                {"status": "error", "message": f"Failed to save design: {str(e)}"}),
             500,
         )
 
@@ -786,7 +833,8 @@ def rollback():
             result["model"] = model_info
         else:
             # No model data, but this is not an error - just add a note to the result
-            logging.info("No model data in rollback response - will reset 3D view")
+            logging.info(
+                "No model data in rollback response - will reset 3D view")
             result["reset_viewer"] = True
 
         return jsonify(result)
@@ -809,7 +857,8 @@ def get_session_stats():
 
         # Get total active sessions
         try:
-            active_sessions = UserSession.query.filter_by(is_active=True).count()
+            active_sessions = UserSession.query.filter_by(
+                is_active=True).count()
         except:
             active_sessions = 0
 
@@ -846,11 +895,13 @@ def submit_feedback():
 
         # Validate required fields
         message_index = data.get("message_index")
-        feedback_type = data.get("feedback_type")  # "thumbs_up" or "thumbs_down"
+        # "thumbs_up" or "thumbs_down"
+        feedback_type = data.get("feedback_type")
 
         if message_index is None:
             return (
-                jsonify({"status": "error", "message": "Message index is required"}),
+                jsonify(
+                    {"status": "error", "message": "Message index is required"}),
                 400,
             )
 
@@ -865,7 +916,7 @@ def submit_feedback():
                 {
                     "message_index": message_index,
                     "feedback_type": feedback_type,
-                    "timestamp": datetime.datetime.now().isoformat(),
+                    "timestamp": datetime.now().isoformat(),
                 },
             )
 
@@ -886,7 +937,8 @@ def submit_feedback():
                     except:
                         error_message = response.text[:100]
 
-                logging.error(f"Error submitting feedback to backend: {error_message}")
+                logging.error(
+                    f"Error submitting feedback to backend: {error_message}")
                 return (
                     jsonify(
                         {
@@ -898,7 +950,8 @@ def submit_feedback():
                 )
 
         except Exception as e:
-            logging.error(f"Error connecting to backend for feedback: {str(e)}")
+            logging.error(
+                f"Error connecting to backend for feedback: {str(e)}")
             return (
                 jsonify(
                     {
@@ -913,18 +966,22 @@ def submit_feedback():
         logging.error(f"Error processing feedback request: {str(e)}")
         return (
             jsonify(
-                {"status": "error", "message": f"Failed to process feedback: {str(e)}"}
+                {"status": "error",
+                    "message": f"Failed to process feedback: {str(e)}"}
             ),
             500,
         )
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        logging.info("Database tables created successfully")
-    app.run(host="0.0.0.0", port=5000, debug=True)
-    with app.app_context():
-        db.create_all()
-        logging.info("Database tables created successfully")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Try to create database tables, but don't fail if DB is unavailable
+    try:
+        with app.app_context():
+            db.create_all()
+            logging.info("Database tables created successfully")
+    except Exception as e:
+        logging.warning(
+            f"Database not available, continuing without it: {str(e)}")
+
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

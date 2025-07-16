@@ -7,13 +7,19 @@ function initViewer() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf7f7f8);
 
+    // Get the actual container to calculate proper aspect ratio
+    const container = document.getElementById('modelViewer');
+    const containerWidth = container.clientWidth || window.innerWidth / 2;
+    const containerHeight = container.clientHeight || window.innerHeight;
+    const aspectRatio = containerWidth / containerHeight;
+
     // Camera setup - positioned further away for a better view
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / 2 / window.innerHeight, 0.1, 1000); // Reduced FOV for less distortion
+    camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.1, 1000); // Use actual container aspect ratio
     camera.position.z = 12; // Increased distance from 5 to 12 for a more zoomed-out view
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth / 2, window.innerHeight);
+    renderer.setSize(containerWidth, containerHeight);
     document.getElementById('modelViewer').appendChild(renderer.domElement);
 
     // Controls setup - Using OrbitControls with unlimited rotation settings
@@ -434,6 +440,40 @@ function updateModelColor(color) {
         }
     }
 }
+
+// Handle window resize to prevent distortion
+function handleViewerResize() {
+    if (!camera || !renderer) return;
+
+    const container = document.getElementById('modelViewer');
+    if (!container) return;
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+
+    // Skip if container has no size
+    if (containerWidth === 0 || containerHeight === 0) return;
+
+    const aspectRatio = containerWidth / containerHeight;
+
+    // Update camera aspect ratio
+    camera.aspect = aspectRatio;
+    camera.updateProjectionMatrix();
+
+    // Update renderer size
+    renderer.setSize(containerWidth, containerHeight);
+
+    // Update axis helper renderer if it exists
+    if (axisRenderer) {
+        // Keep axis renderer size fixed
+        axisRenderer.setSize(110, 110);
+    }
+
+    console.log(`📐 Resized main 3D viewer: ${containerWidth}x${containerHeight}, aspect: ${aspectRatio.toFixed(3)}`);
+}
+
+// Add resize event listener
+window.addEventListener('resize', handleViewerResize);
 
 // Make functions available globally
 window.updateModelColor = updateModelColor;

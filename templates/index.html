@@ -104,7 +104,7 @@
                 <div id="modelViewer"></div>
 
                 <!-- Join Waitlist button -->
-                <div class="waitlist-button-container">
+                <div class="waitlist-button-container" style="display: none;">
                     <button class="btn waitlist-button" id="joinWaitlistBtn">Join Morfis Waitlist</button>
                 </div>
             </div>
@@ -367,6 +367,29 @@
             }
         }
 
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                transform: translateX(-5px);
+            }
+
+            20%,
+            40%,
+            60%,
+            80% {
+                transform: translateX(5px);
+            }
+        }
+
         /* Blur the background content when not authenticated */
         .login-active body>.container-fluid {
             filter: blur(3px);
@@ -377,6 +400,32 @@
     <script>
         // Login form handling
         {% if not is_authenticated %}
+        // Helper function to add timeout to fetch requests
+        function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, timeoutMs);
+
+            const fetchOptions = {
+                ...options,
+                signal: controller.signal
+            };
+
+            return fetch(url, fetchOptions)
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    return response;
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    if (error.name === 'AbortError') {
+                        throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+                    }
+                    throw error;
+                });
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const loginForm = document.getElementById('loginForm');
             const loginBtn = document.getElementById('loginBtn');
@@ -387,6 +436,38 @@
 
             // Focus password input
             passwordInput.focus();
+
+            // Function to show login errors inline
+            function showLoginError(message) {
+                // Reset form state
+                loginBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnSpinner.style.display = 'none';
+
+                // Clear password field for security
+                passwordInput.value = '';
+                passwordInput.focus();
+
+                // Show/update error message
+                let errorDiv = errorMessage;
+                if (!errorDiv) {
+                    // Create error message div if it doesn't exist
+                    errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.id = 'errorMessage';
+                    loginForm.insertBefore(errorDiv, loginForm.firstChild);
+                }
+
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+
+                // Add shake animation to form for visual feedback
+                const formContainer = document.querySelector('.login-form-container');
+                formContainer.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => {
+                    formContainer.style.animation = '';
+                }, 500);
+            }
 
             loginForm.addEventListener('submit', function (e) {
                 e.preventDefault();
@@ -401,15 +482,20 @@
                     errorMessage.style.display = 'none';
                 }
 
-                // Submit form data
+                // Submit form data as JSON
                 const formData = new FormData(loginForm);
+                const data = Object.fromEntries(formData);
 
-                fetch('/login', {
+                fetchWithTimeout('/login', {
                     method: 'POST',
-                    body: formData
-                })
-                    .then(response => {
-                        if (response.redirected || response.ok) {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                }, 20000) // 20 seconds timeout for login
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
                             // Success - remove overlay and unblur content
                             const overlay = document.getElementById('loginOverlay');
                             const content = document.querySelector('body > .container-fluid');
@@ -426,13 +512,18 @@
                                 }, 300);
                             }
                         } else {
-                            // Error - reload page to show error message
-                            window.location.href = '/?error=Invalid password. Please try again.';
+                            // Error - show inline error without page reload
+                            showLoginError(data.error || 'Invalid password. Please try again.');
                         }
                     })
                     .catch(error => {
                         console.error('Login error:', error);
-                        window.location.href = '/?error=Login failed. Please try again.';
+                        // Handle errors without page reload
+                        if (error.message.includes('timed out')) {
+                            showLoginError('Login request timed out. Please try again.');
+                        } else {
+                            showLoginError('Login failed. Please try again.');
+                        }
                     });
             });
         });

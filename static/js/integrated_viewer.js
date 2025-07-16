@@ -18,20 +18,42 @@ class IntegratedViewer {
 
         // Advanced viewer variables
         this.advancedViewer = null;
+        this.lastModelUrl = null;
+        this.lastModelLoadTime = null;
+
+        // Debouncing for color updates
+        this.colorUpdateTimeout = null;
     }
 
     async init(container, config = {}) {
         this.container = container;
         // Always use advanced viewer for consistent unlimited rotation across all file types
         this.mode = 'advanced';
+        this.isInitializing = true; // Flag to prevent color updates during init
 
         console.log(`🚀 Initializing ${this.mode} viewer (forced for unlimited rotation)...`);
 
         try {
             await this.initAdvancedViewer();
             this.initialized = true;
+            this.isInitializing = false; // Clear initialization flag
             console.log(`✅ ${this.mode} viewer initialized successfully`);
+
+            // Ensure the global updateModelColor function points to our integrated viewer
+            window.updateModelColor = (color) => {
+                console.log(`🌐 Direct updateModelColor called with color: ${color}`);
+                if (this.initialized) {
+                    this.updateModelColor(color);
+                } else {
+                    console.log('❌ Viewer not initialized yet');
+                    localStorage.setItem('selectedColor', color);
+                    localStorage.setItem('morfis_model_color', color);
+                }
+            };
+
         } catch (error) {
+            this.isInitializing = false; // Clear flag even on error
+            this.initialized = false;
             console.error(`❌ Failed to initialize ${this.mode} viewer:`, error);
             // If advanced fails, show error - don't fall back to simple viewer
             throw error;
@@ -46,15 +68,30 @@ class IntegratedViewer {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xf7f7f8);
 
-        // Camera setup
-        this.camera = new THREE.PerspectiveCamera(60,
-            this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
+        // Camera setup - use actual container dimensions
+        const containerWidth = this.container.clientWidth || 800;
+        const containerHeight = this.container.clientHeight || 600;
+        const aspectRatio = containerWidth / containerHeight;
+
+        this.camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.1, 1000);
         this.camera.position.z = 12;
 
         // Renderer setup
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.renderer.setSize(containerWidth, containerHeight);
         this.container.appendChild(this.renderer.domElement);
+
+        // Add resize observer to handle container size changes
+        if (window.ResizeObserver) {
+            this.resizeObserver = new ResizeObserver(() => {
+                this.handleResize();
+            });
+            this.resizeObserver.observe(this.container);
+        }
+
+        // Fallback: also listen to window resize
+        this.boundResize = this.handleResize.bind(this);
+        window.addEventListener('resize', this.boundResize);
 
         // Controls setup - Using OrbitControls with unlimited rotation settings
         // Advanced viewer (O3DV) handles its own rotation for STEP files
@@ -163,7 +200,8 @@ class IntegratedViewer {
 
         console.log('📋 Viewer created with edges enabled by default...');
 
-
+        // Hide O3DV loading messages
+        this.hideLoadingMessages(viewerElement);
 
         // Initialize 3D orientation axis for advanced viewer
         this.initAdvancedAxisHelper();
@@ -229,6 +267,79 @@ class IntegratedViewer {
             tryNextUrl();
             document.head.appendChild(script);
         });
+    }
+
+    hideLoadingMessages(viewerElement) {
+        // Function to hide loading messages created by O3DV
+        const hideMessages = () => {
+            // Find and hide all div elements that might contain loading text
+            const allDivs = viewerElement.querySelectorAll('div');
+            allDivs.forEach(div => {
+                const text = div.textContent || div.innerText;
+                if (text.includes('Loading model') ||
+                    text.includes('Importing model') ||
+                    text.includes('Visualizing model')) {
+                    div.style.display = 'none';
+                    div.style.visibility = 'hidden';
+                    console.log('🔇 Hidden loading message:', text);
+                }
+            });
+        };
+
+        // Hide messages immediately
+        hideMessages();
+
+        // Set up observer to hide messages that appear dynamically
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            const text = node.textContent || node.innerText;
+                            if (text && (text.includes('Loading model') ||
+                                text.includes('Importing model') ||
+                                text.includes('Visualizing model'))) {
+                                node.style.display = 'none';
+                                node.style.visibility = 'hidden';
+                                console.log('🔇 Hidden dynamically added loading message:', text);
+                            }
+                            // Also check child elements
+                            const childDivs = node.querySelectorAll && node.querySelectorAll('div');
+                            if (childDivs) {
+                                childDivs.forEach(div => {
+                                    const childText = div.textContent || div.innerText;
+                                    if (childText.includes('Loading model') ||
+                                        childText.includes('Importing model') ||
+                                        childText.includes('Visualizing model')) {
+                                        div.style.display = 'none';
+                                        div.style.visibility = 'hidden';
+                                        console.log('🔇 Hidden child loading message:', childText);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        // Start observing
+        observer.observe(viewerElement, {
+            childList: true,
+            subtree: true
+        });
+
+        // Also periodically check for loading messages for extra safety
+        const intervalId = setInterval(() => {
+            hideMessages();
+        }, 100);
+
+        // Stop the interval after 10 seconds (loading should be done by then)
+        setTimeout(() => {
+            clearInterval(intervalId);
+            observer.disconnect();
+            console.log('🔇 Stopped monitoring for loading messages');
+        }, 10000);
     }
 
     initSimpleAxisHelper() {
@@ -319,7 +430,7 @@ class IntegratedViewer {
                         background: linear-gradient(135deg, #28a745, #20c997);
                         color: white;
                         transform: translateZ(30px);
-                    ">Y</div>
+                    ">Z</div>
                     <div class="axis-face back" style="
                         position: absolute;
                         width: 60px;
@@ -334,7 +445,7 @@ class IntegratedViewer {
                         background: linear-gradient(135deg, #90d4aa, #6abf83);
                         color: white;
                         transform: translateZ(-30px) rotateY(180deg);
-                    ">-Y</div>
+                    ">-Z</div>
                     <div class="axis-face right" style="
                         position: absolute;
                         width: 60px;
@@ -379,7 +490,7 @@ class IntegratedViewer {
                         background: linear-gradient(135deg, #007bff, #0056b3);
                         color: white;
                         transform: rotateX(-90deg) translateZ(30px);
-                    ">Z</div>
+                    ">-Y</div>
                     <div class="axis-face bottom" style="
                         position: absolute;
                         width: 60px;
@@ -394,7 +505,7 @@ class IntegratedViewer {
                         background: linear-gradient(135deg, #74b9ff, #4a9eff);
                         color: white;
                         transform: rotateX(90deg) translateZ(30px);
-                    ">-Z</div>
+                    ">Y</div>
                 </div>
             </div>
         `;
@@ -782,8 +893,9 @@ class IntegratedViewer {
         this.currentModel.scale.setScalar(scale);
         this.currentModel.position.copy(center.multiplyScalar(-scale));
 
-        // Apply currently selected color
-        this.applyCurrentColor();
+        // Apply currently selected color to Three.js material directly
+        const savedColor = localStorage.getItem('selectedColor') || localStorage.getItem('morfis_model_color') || '#9146FF';
+        this.currentModel.material.color.setHex(savedColor.replace('#', '0x'));
     }
 
     updateAdvancedModel(modelData) {
@@ -793,29 +905,57 @@ class IntegratedViewer {
         if (modelData && modelData.path) {
             const modelUrl = `${window.location.origin}/${modelData.path}`;
             console.log('📂 Loading backend model in advanced viewer:', modelUrl);
-            this.lastModelUrl = modelUrl;
 
-            // Set up color configuration before loading
-            const currentColor = this.pendingColor || localStorage.getItem('selectedColor') || '#FF4500';
+            // Check if this is the same model that's already loaded, but allow reloading
+            // if this appears to be from a fresh generation (add timestamp to prevent cache issues)
+            const modelUrlWithTimestamp = `${modelUrl}?t=${Date.now()}`;
+
+            // Only skip reload if the exact same URL (including timestamp) was just loaded
+            // This prevents rapid successive calls but allows new models with same filename
+            if (this.lastModelUrl === modelUrlWithTimestamp) {
+                console.log('🚫 Same model with same timestamp already loaded, skipping reload');
+                return;
+            }
+
+            // Also check if we're trying to load the same base URL within a very short time
+            const baseUrl = modelUrl.split('?')[0];
+            const lastBaseUrl = this.lastModelUrl ? this.lastModelUrl.split('?')[0] : null;
+            const now = Date.now();
+
+            if (baseUrl === lastBaseUrl && this.lastModelLoadTime && (now - this.lastModelLoadTime) < 1000) {
+                console.log('🚫 Same base model loaded very recently, skipping to prevent double-loading');
+                return;
+            }
+
+            this.lastModelUrl = modelUrlWithTimestamp;
+            this.lastModelLoadTime = now;
+
+            // Use the current stored color (most up-to-date from color selector)
+            const currentColor = localStorage.getItem('selectedColor') || this.pendingColor || '#FF4500';
             const hexColor = currentColor.replace('#', '');
             const r = parseInt(hexColor.substr(0, 2), 16);
             const g = parseInt(hexColor.substr(2, 2), 16);
             const b = parseInt(hexColor.substr(4, 2), 16);
 
-            console.log(`🎨 Setting up model with color: ${currentColor} (RGB: ${r}, ${g}, ${b})`);
+            console.log(`🎨 Loading model with current color: ${currentColor} (RGB: ${r}, ${g}, ${b})`);
 
-            this.advancedViewer.LoadModelFromUrlList([modelUrl]);
+            // Update viewer config with current color before loading
+            if (this.viewerConfig) {
+                this.viewerConfig.defaultColor = new OV.RGBColor(r, g, b);
+            }
 
-            // Clear pending color and apply color after model loads
+            // Load the model with timestamp to prevent browser caching of old model
+            this.advancedViewer.LoadModelFromUrlList([modelUrlWithTimestamp]);
+
+            // Clear pending color since we used the stored color
             this.pendingColor = null;
-            setTimeout(() => {
-                this.applyCurrentColor();
-            }, 1000);
         } else if (modelData && modelData.type === 'reset') {
             // Clear the viewer if backend sends reset signal
             console.log('🔄 Clearing advanced viewer');
             // O3DV doesn't have a direct clear method, but we can reload with empty array
             this.advancedViewer.LoadModelFromUrlList([]);
+            this.lastModelUrl = null; // Clear the stored URL when resetting
+            this.lastModelLoadTime = null;
         } else {
             console.log('📭 Advanced viewer: No compatible model data from backend');
         }
@@ -832,6 +972,50 @@ class IntegratedViewer {
         }
     }
 
+    handleResize() {
+        if (this.mode === 'simple' && this.camera && this.renderer && this.container) {
+            const containerWidth = this.container.clientWidth;
+            const containerHeight = this.container.clientHeight;
+
+            if (containerWidth === 0 || containerHeight === 0) return;
+
+            const aspectRatio = containerWidth / containerHeight;
+
+            // Update camera aspect ratio
+            this.camera.aspect = aspectRatio;
+            this.camera.updateProjectionMatrix();
+
+            // Update renderer size
+            this.renderer.setSize(containerWidth, containerHeight);
+
+            console.log(`📐 Resized 3D viewer: ${containerWidth}x${containerHeight}, aspect: ${aspectRatio.toFixed(3)}`);
+        }
+        // Note: Advanced viewer (O3DV) handles its own resizing
+    }
+
+    destroy() {
+        // Clean up resize observers and event listeners
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
+
+        if (this.boundResize) {
+            window.removeEventListener('resize', this.boundResize);
+            this.boundResize = null;
+        }
+
+        // Clean up Three.js resources
+        if (this.renderer) {
+            this.renderer.dispose();
+        }
+
+        // Clear container
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+    }
+
     clearModel() {
         if (this.mode === 'simple') {
             // Simple viewer: Remove the current model from the scene
@@ -844,6 +1028,8 @@ class IntegratedViewer {
 
             // Method 1: Load empty model list
             this.advancedViewer.LoadModelFromUrlList([]);
+            this.lastModelUrl = null; // Clear the stored URL to allow fresh loading
+            this.lastModelLoadTime = null;
 
             // Method 2: Try to clear the underlying viewer if available
             try {
@@ -892,6 +1078,7 @@ class IntegratedViewer {
             }
 
             this.lastModelUrl = null;
+            this.lastModelLoadTime = null;
         }
 
         // Clear download handler when model is cleared
@@ -901,31 +1088,76 @@ class IntegratedViewer {
     }
 
     applyCurrentColor() {
-        // Get the currently selected color from the color selector
-        const activeColorOption = document.querySelector('.color-option.active');
-        if (activeColorOption) {
-            const color = activeColorOption.dataset.color;
-            this.updateModelColor(color);
-        } else {
-            // Fallback to saved color in localStorage
-            const savedColor = localStorage.getItem('morfis_model_color');
-            if (savedColor) {
-                this.updateModelColor(savedColor);
-            }
+        // This method is deprecated to prevent double-loading issues
+        // Color is now applied directly during model loading or via updateModelColor
+        console.log('🚫 applyCurrentColor() called - this method is deprecated to prevent double-loading');
+
+        // Only apply color to simple mode models directly
+        if (this.mode === 'simple' && this.currentModel) {
+            const savedColor = localStorage.getItem('selectedColor') || localStorage.getItem('morfis_model_color') || '#9146FF';
+            this.currentModel.material.color.setHex(savedColor.replace('#', '0x'));
         }
+        // For advanced mode, color is handled during model loading to prevent reloads
     }
 
     updateModelColor(color) {
+        console.log(`🎨 updateModelColor called with color: ${color}, initialized: ${this.initialized}, isInitializing: ${this.isInitializing}, mode: ${this.mode}`);
+
+        // Skip color updates during initialization to prevent double-loading
+        if (this.isInitializing) {
+            console.log('🚫 Viewer is initializing, skipping color update to prevent double-loading');
+            return;
+        }
+
         if (this.mode === 'simple' && this.currentModel) {
             // Simple viewer: Update Three.js material color
+            console.log('🎨 Updating simple mode material color');
             this.currentModel.material.color.setHex(color.replace('#', '0x'));
-        } else if (this.mode === 'advanced' && this.advancedViewer && this.lastModelUrl) {
-            // Advanced viewer: For immediate color changes, always recreate with new color
-            this.recreateAdvancedViewerWithColor(color, this.lastModelUrl);
+        } else if (this.mode === 'advanced' && this.advancedViewer) {
+            // Advanced viewer: Store color for next model load, but don't reload current model
+            console.log(`🎨 Color changed to ${color}, will apply to next model load`);
+
+            // Store the color for future use
+            localStorage.setItem('selectedColor', color);
+
+            // Update the viewer config for future model loads
+            const hexColor = color.replace('#', '');
+            const r = parseInt(hexColor.substr(0, 2), 16);
+            const g = parseInt(hexColor.substr(2, 2), 16);
+            const b = parseInt(hexColor.substr(4, 2), 16);
+
+            if (this.viewerConfig) {
+                this.viewerConfig.defaultColor = new OV.RGBColor(r, g, b);
+                console.log(`🎨 Updated viewer config with RGB(${r}, ${g}, ${b})`);
+            }
+
+            // Debounce color updates to prevent rapid successive reloads
+            if (this.colorUpdateTimeout) {
+                clearTimeout(this.colorUpdateTimeout);
+            }
+
+            this.colorUpdateTimeout = setTimeout(() => {
+                // Handle color updates for loaded models vs empty viewer
+                if (!this.lastModelUrl) {
+                    console.log('🔄 No model loaded, safe to recreate viewer with new color');
+                    this.recreateAdvancedViewerWithColor(color, null);
+                } else {
+                    console.log('🎨 Model already loaded, applying color immediately by recreating viewer');
+                    // For immediate visual feedback, we do need to recreate with the loaded model
+                    // This will cause one reload, but it's intentional for user experience
+                    this.recreateAdvancedViewerWithColor(color, this.lastModelUrl);
+                }
+                this.colorUpdateTimeout = null;
+            }, 300); // 300ms debounce delay
+        } else {
+            console.log('⚠️ No suitable viewer mode or viewer not ready for color update');
         }
     }
 
     async recreateAdvancedViewerWithColor(color, modelUrl) {
+        // This method should only be called when absolutely necessary to prevent double-loading
+        console.log('🔄 Recreating advanced viewer with color:', color);
+
         // Store the pending color
         this.pendingColor = color;
 
@@ -953,6 +1185,9 @@ class IntegratedViewer {
         // Create new viewer with updated configuration
         this.advancedViewer = new OV.EmbeddedViewer(viewerElement, this.viewerConfig);
 
+        // Hide O3DV loading messages for recreated viewer
+        this.hideLoadingMessages(viewerElement);
+
         // Recreate the axis helper
         this.initAdvancedAxisHelper();
 
@@ -961,9 +1196,16 @@ class IntegratedViewer {
             this.trackAdvancedCameraChanges();
         }, 1000);
 
-        // Reload the model with the new color
+        // Always reload the model if a URL is provided
         if (modelUrl) {
+            console.log('🔄 Loading model in recreated viewer:', modelUrl);
             this.advancedViewer.LoadModelFromUrlList([modelUrl]);
+            this.lastModelUrl = modelUrl;
+            this.lastModelLoadTime = Date.now();
+        } else {
+            console.log('🚫 No model URL provided for recreated viewer');
+            this.lastModelUrl = null;
+            this.lastModelLoadTime = null;
         }
 
         // Clear pending color
@@ -1006,11 +1248,17 @@ class IntegratedViewer {
                 edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1)
             });
 
+            // Hide O3DV loading messages for STL viewer
+            const stlViewerElement = document.getElementById('online_3d_viewer');
+            this.hideLoadingMessages(stlViewerElement);
+
             // Create temporary URL for the file
             const fileUrl = URL.createObjectURL(file);
 
             // Load the STL file with O3DV
             this.advancedViewer.LoadModelFromUrlList([fileUrl]);
+            this.lastModelUrl = fileUrl;
+            this.lastModelLoadTime = Date.now();
 
             // Initialize axis helper for STL files too
             this.initAdvancedAxisHelper();
@@ -1080,7 +1328,21 @@ function resetViewer() {
 
 // Update model color function for compatibility
 function updateModelColor(color) {
+    console.log(`🌐 Global updateModelColor called with color: ${color}`);
+    console.log(`🔍 integratedViewer exists: ${!!window.integratedViewer}, initialized: ${window.integratedViewer?.initialized}`);
+
     if (window.integratedViewer && window.integratedViewer.initialized) {
+        console.log('✅ Calling integratedViewer.updateModelColor');
         window.integratedViewer.updateModelColor(color);
+    } else {
+        console.log('❌ IntegratedViewer not available or not initialized');
+
+        // Fallback: if integrated viewer isn't ready, still update localStorage
+        localStorage.setItem('selectedColor', color);
+        localStorage.setItem('morfis_model_color', color);
+        console.log('💾 Stored color in localStorage for when viewer is ready');
     }
-} 
+}
+
+// Override the global updateModelColor function to ensure integrated viewer is used
+window.updateModelColor = updateModelColor;

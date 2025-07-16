@@ -13,19 +13,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Check if there's a saved color preference in localStorage
-    const savedColor = localStorage.getItem('morfis_model_color');
+    // Give priority to 'selectedColor' over the older 'morfis_model_color'
+    const savedColor = localStorage.getItem('selectedColor') || localStorage.getItem('morfis_model_color');
     if (savedColor) {
+        console.log(`🎨 Color selector loading saved color: ${savedColor}`);
         // Set the saved color as active
         colorOptions.forEach(option => {
             if (option.dataset.color === savedColor) {
                 setActiveColor(option);
             }
         });
+    } else {
+        console.log('🎨 No saved color found, using default');
     }
 
     // Add click event listeners to all color options
     colorOptions.forEach(colorOption => {
         colorOption.addEventListener('click', () => {
+            console.log(`🎨 Color option clicked: ${colorOption.dataset.color}`);
+
             // Set this color as active
             setActiveColor(colorOption);
 
@@ -35,10 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Save to localStorage
             localStorage.setItem('morfis_model_color', color);
             localStorage.setItem('selectedColor', color);
+            console.log(`💾 Saved color to localStorage: ${color}`);
 
             // Update the model color immediately
             if (window.updateModelColor) {
+                console.log(`🔄 Calling window.updateModelColor(${color})`);
                 window.updateModelColor(color);
+            } else {
+                console.log('❌ window.updateModelColor not available');
             }
         });
     });

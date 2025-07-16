@@ -1,4 +1,30 @@
-// Download Handler for 3D Models
+// Helper function to add timeout to fetch requests
+function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    const fetchOptions = {
+        ...options,
+        signal: controller.signal
+    };
+
+    return fetch(url, fetchOptions)
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response;
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+            }
+            throw error;
+        });
+}
+
+// Download Handler functionality
 class DownloadHandler {
     constructor() {
         this.currentModelData = null;
@@ -64,7 +90,12 @@ class DownloadHandler {
 
         } catch (error) {
             console.error('Download error:', error);
-            this.showNotification('Failed to download model', 'error');
+            // Handle timeout errors with specific message
+            if (error.message.includes('timed out')) {
+                this.showNotification('Download timed out. Please try again.', 'error');
+            } else {
+                this.showNotification('Failed to download model', 'error');
+            }
         } finally {
             // Reset button state
             const downloadBtn = document.getElementById('downloadModelBtn');
@@ -78,7 +109,7 @@ class DownloadHandler {
         const modelUrl = `${window.location.origin}/${modelPath}`;
 
         try {
-            const response = await fetch(modelUrl);
+            const response = await fetchWithTimeout(modelUrl, {}, 120000);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -88,7 +119,12 @@ class DownloadHandler {
 
             this.downloadBlob(blob, filename);
         } catch (error) {
-            throw new Error(`Failed to download from path: ${error.message}`);
+            // Preserve timeout error information
+            if (error.message.includes('timed out')) {
+                throw new Error(`Download timed out: ${error.message}`);
+            } else {
+                throw new Error(`Failed to download from path: ${error.message}`);
+            }
         }
     }
 

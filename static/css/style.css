@@ -1681,3 +1681,42 @@ code {
     background: rgba(255, 255, 255, 0.1) !important;
     transform: translateY(-50%) translateY(-1px);
 }
+
+/* Hide O3DV loading messages */
+#viewer div:contains("Loading model..."),
+#viewer div:contains("Importing model..."),
+#viewer div:contains("Visualizing model...") {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* More specific targeting for O3DV loading elements */
+#modelViewer div[style*="position: absolute"] div:contains("Loading"),
+#modelViewer div[style*="position: absolute"] div:contains("Importing"),
+#online_3d_viewer div[style*="position: absolute"] div:contains("Loading"),
+#online_3d_viewer div[style*="position: absolute"] div:contains("Importing") {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Hide any loading text in the top right corner */
+#viewer>div:first-child:not(canvas),
+#online_3d_viewer>div:first-child:not(canvas) {
+    display: none !important;
+}
+
+/* Alternative approach - hide all positioned divs that might contain loading text */
+#viewer div[style*="position"],
+#online_3d_viewer div[style*="position"] {
+    color: transparent !important;
+    font-size: 0 !important;
+}
+
+/* Make sure canvas and actual viewer content is still visible */
+#viewer canvas,
+#online_3d_viewer canvas,
+#viewer>canvas,
+#online_3d_viewer>canvas {
+    display: block !important;
+    visibility: visible !important;
+}

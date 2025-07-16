@@ -2,103 +2,42 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Flask Debug",
+            "name": "Flask (Local Backend)",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/app.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "env": {
-                "FLASK_APP": "main.py",
+                "FLASK_APP": "app.py",
                 "FLASK_ENV": "development",
                 "FLASK_DEBUG": "1",
                 "PYTHONPATH": "${workspaceFolder}",
                 "FLASK_SECRET_KEY": "dev-secret-key",
-                "DATABASE_URL": "postgresql://postgres:password@localhost:5432/morfis_dev",
-                "BACKEND_URL": "https://morfis.ngrok.app"
+                "DATABASE_URL": "sqlite:///local_dev.db",
+                "BACKEND_URL": "http://localhost:8000",
+                "PORT": "5000"
             },
             "args": [],
             "jinja": true,
             "justMyCode": false
         },
         {
-            "name": "Flask Debug (Remote)",
-            "type": "python",
-            "request": "attach",
-            "connect": {
-                "host": "localhost",
-                "port": 5678
-            },
-            "pathMappings": [
-                {
-                    "localRoot": "${workspaceFolder}",
-                    "remoteRoot": "/workspace"
-                }
-            ],
-            "justMyCode": false
-        },
-        {
-            "name": "Flask with Debugpy",
+            "name": "Flask (Production Backend)",
             "type": "python",
             "request": "launch",
-            "module": "debugpy",
-            "args": [
-                "--listen",
-                "0.0.0.0:5678",
-                "--wait-for-client",
-                "main.py"
-            ],
+            "program": "${workspaceFolder}/app.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "env": {
-                "FLASK_APP": "main.py",
+                "FLASK_APP": "app.py",
                 "FLASK_ENV": "development",
                 "FLASK_DEBUG": "1",
                 "PYTHONPATH": "${workspaceFolder}",
                 "FLASK_SECRET_KEY": "dev-secret-key",
-                "DATABASE_URL": "postgresql://postgres:password@localhost:5432/morfis_dev",
-                "BACKEND_URL": "https://morfis.ngrok.app"
-            },
-            "jinja": true,
-            "justMyCode": false
-        },
-        {
-            "name": "Python: Current File",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            },
-            "justMyCode": false
-        },
-        {
-            "name": "Debug Flask App (Port 5001)",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/run_debug.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "FLASK_ENV": "development",
-                "FLASK_DEBUG": "1"
-            },
-            "args": [],
-            "jinja": true,
-            "justMyCode": false
-        },
-        {
-            "name": "Debug Flask App (with DB - Port 5000)",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/run_local.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "env": {
-                "FLASK_ENV": "development",
-                "FLASK_DEBUG": "1"
+                "DATABASE_URL": "sqlite:///local_dev.db",
+                "BACKEND_URL": "https://morfis.ngrok.app",
+                "PORT": "5000"
             },
             "args": [],
             "jinja": true,

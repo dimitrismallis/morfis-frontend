@@ -1,5 +1,31 @@
-// Save Design Functionality
-document.addEventListener('DOMContentLoaded', function() {
+// Helper function to add timeout to fetch requests
+function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeoutMs);
+
+    const fetchOptions = {
+        ...options,
+        signal: controller.signal
+    };
+
+    return fetch(url, fetchOptions)
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response;
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+            }
+            throw error;
+        });
+}
+
+// Handle save design functionality
+document.addEventListener('DOMContentLoaded', function () {
     // Get the save design button and modal elements
     const saveDesignBtn = document.getElementById('saveDesignBtn');
     const saveDesignModal = document.getElementById('saveDesignModal');
@@ -7,14 +33,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const designNameInput = document.getElementById('designName');
     const confirmSaveBtn = document.getElementById('confirmSaveDesign');
     const saveDesignStatus = document.getElementById('saveDesignStatus');
-    
+
     // Add click event listener to save design button
     if (saveDesignBtn) {
-        saveDesignBtn.addEventListener('click', function() {
+        saveDesignBtn.addEventListener('click', function () {
             openSaveDesignModal();
         });
     }
-    
+
     // Function to open the save design modal
     function openSaveDesignModal() {
         // Reset the form and status message
@@ -23,35 +49,35 @@ document.addEventListener('DOMContentLoaded', function() {
             saveDesignStatus.className = 'mt-3 d-none';
             saveDesignStatus.textContent = '';
         }
-        
+
         // Initialize Bootstrap modal
         const modal = new bootstrap.Modal(saveDesignModal);
         modal.show();
-        
+
         // Focus on the design name input after modal is shown
-        saveDesignModal.addEventListener('shown.bs.modal', function() {
+        saveDesignModal.addEventListener('shown.bs.modal', function () {
             designNameInput.focus();
         }, { once: true });
     }
-    
+
     // Add submit handler for the save design form
     if (confirmSaveBtn) {
-        confirmSaveBtn.addEventListener('click', async function() {
+        confirmSaveBtn.addEventListener('click', async function () {
             // Validate form
             if (!designNameInput.value.trim()) {
                 showSaveStatus('Please enter a design name', 'error');
                 designNameInput.focus();
                 return;
             }
-            
+
             // Show loading state
             const originalBtnText = confirmSaveBtn.innerHTML;
             confirmSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
             confirmSaveBtn.disabled = true;
-            
+
             try {
                 // Call the backend to save the design
-                const response = await fetch('/save_design', {
+                const response = await fetchWithTimeout('/save_design', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -59,14 +85,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({
                         name: designNameInput.value.trim()
                     })
-                });
-                
+                }, 30000); // 30 seconds timeout
+
                 const data = await response.json();
-                
+
                 if (response.ok && data.status === 'success') {
                     // Show success message
                     showSaveStatus(data.message, 'success');
-                    
+
                     // Close modal after a short delay
                     setTimeout(() => {
                         bootstrap.Modal.getInstance(saveDesignModal).hide();
@@ -77,7 +103,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Error saving design:', error);
-                showSaveStatus('An error occurred while saving the design', 'error');
+                // Handle timeout errors with specific message
+                if (error.message.includes('timed out')) {
+                    showSaveStatus('Save request timed out. Please try again.', 'error');
+                } else {
+                    showSaveStatus('An error occurred while saving the design', 'error');
+                }
             } finally {
                 // Reset button state
                 confirmSaveBtn.innerHTML = originalBtnText;
@@ -85,21 +116,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Allow pressing Enter in the input field to submit the form
     if (designNameInput) {
-        designNameInput.addEventListener('keypress', function(e) {
+        designNameInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 confirmSaveBtn.click();
             }
         });
     }
-    
+
     // Function to show status messages
     function showSaveStatus(message, type) {
         if (!saveDesignStatus) return;
-        
+
         saveDesignStatus.textContent = message;
         saveDesignStatus.className = `mt-3 ${type}`;
         saveDesignStatus.classList.remove('d-none');
