@@ -25,6 +25,27 @@ body {
     /* Use auto instead of scroll */
 }
 
+/* Ensure smooth transitions when viewport height changes on mobile */
+.chat-panel,
+.viewer-panel {
+    transition: height 0.2s ease-out;
+}
+
+/* Prevent scrolling issues on iOS Safari */
+body {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for iOS Safari address bar behavior */
+@supports (-webkit-touch-callout: none) {
+
+    .chat-panel,
+    .viewer-panel {
+        height: var(--app-height, 100vh);
+        min-height: var(--app-height, 100vh);
+    }
+}
+
 /* Add padding to the top of the container to account for the fixed header */
 .container-fluid {
     padding-top: 0 !important;
@@ -117,7 +138,7 @@ body.modal-open {
 .chat-panel {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: var(--app-height, 100vh);
     background-color: var(--background-color);
     position: relative;
     /* For the pseudo-element */
@@ -332,7 +353,7 @@ body.modal-open {
 }
 
 .viewer-panel {
-    height: 100vh;
+    height: var(--app-height, 100vh);
     padding: 0;
     background-color: #f7f7f8;
     position: relative;
@@ -459,7 +480,7 @@ button.waiting {
 
     .chat-panel,
     .viewer-panel {
-        height: 50vh;
+        height: calc(var(--app-height, 100vh) / 2);
     }
 }
 

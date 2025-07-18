@@ -131,6 +131,49 @@ async function initializeMorfisApp() {
         console.log('Scrollbar width calculated:', scrollbarWidth);
     };
 
+    // Calculate actual viewport height to fix iPad viewport issues
+    const setViewportHeight = () => {
+        // Use window.innerHeight which excludes browser UI elements
+        const vh = window.innerHeight;
+        document.documentElement.style.setProperty('--app-height', `${vh}px`);
+        console.log('Viewport height set to:', vh);
+    };
+
+    // Set viewport height on load and resize
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+
+    // Also listen for orientation changes on mobile devices
+    window.addEventListener('orientationchange', () => {
+        // Delay to ensure the viewport has adjusted after rotation
+        setTimeout(setViewportHeight, 100);
+    });
+
+    // Additional listeners for mobile browser behavior
+    // Handle cases where the viewport changes without resize events (iOS Safari address bar)
+    let initialViewportHeight = window.innerHeight;
+
+    const handleViewportChange = () => {
+        const currentHeight = window.innerHeight;
+        // Only update if there's a significant change (more than 50px)
+        if (Math.abs(currentHeight - initialViewportHeight) > 50) {
+            setViewportHeight();
+            initialViewportHeight = currentHeight;
+        }
+    };
+
+    // Check viewport height on scroll (for iOS Safari address bar behavior)
+    let scrollTimer;
+    window.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(handleViewportChange, 150);
+    }, { passive: true });
+
+    // Also check on touch events for mobile interactions
+    window.addEventListener('touchend', () => {
+        setTimeout(handleViewportChange, 300);
+    }, { passive: true });
+
     // Calculate scrollbar width on load
     calculateScrollbarWidth();
 
