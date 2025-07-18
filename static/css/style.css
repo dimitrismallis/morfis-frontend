@@ -1841,3 +1841,306 @@ code {
     display: block !important;
     visibility: visible !important;
 }
+
+/* ============================================
+   MOBILE INPUT MODAL STYLES
+   ============================================ */
+
+/* Mobile Input Modal - Shows only on touch devices */
+.mobile-input-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.mobile-input-modal.show {
+    display: flex;
+    opacity: 1;
+}
+
+.mobile-input-modal.show .mobile-input-container {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.mobile-input-container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 500px;
+    padding: 30px;
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-sizing: border-box;
+}
+
+.mobile-input-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+}
+
+.mobile-input-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+}
+
+.mobile-input-close {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 16px;
+}
+
+.mobile-input-close:hover {
+    background: #7700cc;
+    transform: scale(1.05);
+}
+
+.mobile-input-field {
+    width: 100%;
+    padding: 16px 20px;
+    border: 2px solid #e1e5e9;
+    border-radius: 12px;
+    font-size: 18px;
+    font-family: inherit;
+    background: #fafafa;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    resize: none;
+    min-height: 60px;
+    max-height: 200px;
+    line-height: 1.5;
+}
+
+.mobile-input-field:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(145, 70, 255, 0.1);
+    background: white;
+}
+
+.mobile-input-field.textarea {
+    min-height: 120px;
+    font-family: inherit;
+}
+
+.mobile-input-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 25px;
+    justify-content: flex-end;
+}
+
+.mobile-input-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    min-width: 100px;
+}
+
+.mobile-input-btn.cancel {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.mobile-input-btn.cancel:hover {
+    background: #e5e7eb;
+    transform: translateY(-2px);
+}
+
+.mobile-input-btn.confirm {
+    background: var(--primary-color);
+    color: white;
+}
+
+.mobile-input-btn.confirm:hover {
+    background: #7700cc;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(145, 70, 255, 0.3);
+}
+
+.mobile-input-btn:active {
+    transform: translateY(0);
+}
+
+/* Character counter for textareas */
+.mobile-input-counter {
+    text-align: right;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #6e6e80;
+}
+
+/* Animation keyframes */
+@keyframes mobileModalFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes mobileModalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes mobileModalFadeOut {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes mobileModalSlideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+}
+
+/* Device-specific optimizations */
+
+/* iPad specific styles */
+@media only screen and (min-device-width: 768px) and (max-device-width: 1024px) and (-webkit-min-device-pixel-ratio: 1) {
+    .mobile-input-container {
+        max-width: 600px;
+        padding: 40px;
+    }
+
+    .mobile-input-field {
+        font-size: 20px;
+        padding: 20px 24px;
+        min-height: 70px;
+    }
+
+    .mobile-input-field.textarea {
+        min-height: 140px;
+    }
+
+    .mobile-input-title {
+        font-size: 24px;
+    }
+}
+
+/* iPhone specific styles */
+@media only screen and (max-device-width: 667px) {
+    .mobile-input-modal {
+        padding: 16px;
+    }
+
+    .mobile-input-container {
+        max-width: none;
+        width: 100%;
+        padding: 24px;
+        margin: 0;
+    }
+
+    .mobile-input-field {
+        font-size: 18px;
+        padding: 16px 20px;
+    }
+
+    .mobile-input-title {
+        font-size: 18px;
+    }
+
+    .mobile-input-actions {
+        flex-direction: column;
+    }
+
+    .mobile-input-btn {
+        width: 100%;
+        padding: 14px 24px;
+    }
+}
+
+/* iPhone X and newer with notch */
+@media only screen and (max-device-width: 667px) and (orientation: portrait) {
+    .mobile-input-modal {
+        padding-top: max(20px, env(safe-area-inset-top));
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
+
+/* Landscape orientation adjustments */
+@media only screen and (max-height: 500px) and (orientation: landscape) {
+    .mobile-input-modal {
+        padding: 12px;
+        align-items: flex-start;
+        padding-top: max(12px, env(safe-area-inset-top));
+    }
+
+    .mobile-input-container {
+        margin-top: 20px;
+        padding: 20px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+    }
+
+    .mobile-input-field.textarea {
+        min-height: 80px;
+        max-height: 120px;
+    }
+}
+
+/* Hide modal on non-touch devices */
+@media (hover: hover) and (pointer: fine) {
+    .mobile-input-modal {
+        display: none !important;
+    }
+}
+
+/* Only show on touch devices */
+@media (hover: none) and (pointer: coarse) {
+    /* Mobile input modal will be shown via JavaScript */
+}
