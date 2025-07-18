@@ -24,7 +24,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     } else {
-        console.log('🎨 No saved color found, using default');
+        console.log('🎨 No saved color found, setting default purple to match UI');
+        // Set default purple color to match the UI and save it to localStorage
+        const defaultColor = '#9146FF';
+        localStorage.setItem('selectedColor', defaultColor);
+        localStorage.setItem('morfis_model_color', defaultColor);
+
+        // Set the purple option as active (it should already be active in HTML, but make sure)
+        colorOptions.forEach(option => {
+            if (option.dataset.color === defaultColor) {
+                setActiveColor(option);
+            }
+        });
     }
 
     // Add click event listeners to all color options

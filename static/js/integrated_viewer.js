@@ -73,7 +73,8 @@ class IntegratedViewer {
         const containerHeight = this.container.clientHeight || 600;
         const aspectRatio = containerWidth / containerHeight;
 
-        this.camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.1, 1000);
+        // Set much smaller near clipping plane to prevent objects disappearing when zooming in close
+        this.camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.001, 1000);
         this.camera.position.z = 12;
 
         // Renderer setup
@@ -104,7 +105,7 @@ class IntegratedViewer {
         this.controls.maxPolarAngle = Math.PI; // Allow 180° vertical (orbit style)
         this.controls.enableRotate = true;
         this.controls.enableZoom = true;
-        this.controls.enablePan = true;
+        this.controls.enablePan = false; // Disabled to prevent two-finger pan gesture on iPad
 
         // Remove azimuth constraints for full horizontal rotation
         // Don't set minAzimuthAngle or maxAzimuthAngle for 360° horizontal rotation
@@ -112,7 +113,11 @@ class IntegratedViewer {
         // Smooth rotation behavior
         this.controls.rotateSpeed = 1.0;
         this.controls.zoomSpeed = 1.2;
-        this.controls.panSpeed = 0.8;
+        // this.controls.panSpeed = 0.8; // Not needed since pan is disabled
+
+        // Set zoom constraints to prevent objects from disappearing when zooming too close
+        this.controls.minDistance = 0.1; // Minimum zoom distance
+        this.controls.maxDistance = 100; // Maximum zoom distance
 
         // Set target at origin for proper rotation center
         this.controls.target.set(0, 0, 0);
@@ -171,8 +176,8 @@ class IntegratedViewer {
             await this.loadOnline3DViewer();
         }
 
-        // Get current color or use default
-        const currentColor = this.pendingColor || localStorage.getItem('selectedColor') || '#FF4500';
+        // Get current color or use default (matching the UI default purple)
+        const currentColor = this.pendingColor || localStorage.getItem('selectedColor') || '#9146FF';
         const hexColor = currentColor.replace('#', '');
         const r = parseInt(hexColor.substr(0, 2), 16);
         const g = parseInt(hexColor.substr(2, 2), 16);
@@ -362,8 +367,8 @@ class IntegratedViewer {
         this.axisScene = new THREE.Scene();
         this.axisScene.background = new THREE.Color(0xf0f0f0);
 
-        // Setup camera for axis scene
-        this.axisCamera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 100);
+        // Setup camera for axis scene - set smaller near clipping plane
+        this.axisCamera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.001, 100);
         this.axisCamera.position.set(0, 0, 4);
         this.axisCamera.lookAt(0, 0, 0);
 
@@ -931,7 +936,7 @@ class IntegratedViewer {
             this.lastModelLoadTime = now;
 
             // Use the current stored color (most up-to-date from color selector)
-            const currentColor = localStorage.getItem('selectedColor') || this.pendingColor || '#FF4500';
+            const currentColor = localStorage.getItem('selectedColor') || this.pendingColor || '#9146FF';
             const hexColor = currentColor.replace('#', '');
             const r = parseInt(hexColor.substr(0, 2), 16);
             const g = parseInt(hexColor.substr(2, 2), 16);
@@ -1242,9 +1247,10 @@ class IntegratedViewer {
 
         try {
             // Initialize O3DV for STL files using the same OV namespace
+            // Use purple (#9146FF) as default to match the UI color selector
             this.advancedViewer = new OV.EmbeddedViewer('online_3d_viewer', {
                 backgroundColor: new OV.RGBAColor(248, 249, 250, 255),
-                defaultColor: new OV.RGBColor(200, 200, 200),
+                defaultColor: new OV.RGBColor(145, 70, 255), // Purple #9146FF in RGB
                 edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1)
             });
 

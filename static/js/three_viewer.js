@@ -14,7 +14,8 @@ function initViewer() {
     const aspectRatio = containerWidth / containerHeight;
 
     // Camera setup - positioned further away for a better view
-    camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.1, 1000); // Use actual container aspect ratio
+    // Set much smaller near clipping plane to prevent objects disappearing when zooming in close
+    camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.001, 1000); // Use actual container aspect ratio
     camera.position.z = 12; // Increased distance from 5 to 12 for a more zoomed-out view
 
     // Renderer setup
@@ -32,7 +33,7 @@ function initViewer() {
     controls.maxPolarAngle = Math.PI; // Allow 180° vertical (orbit style)
     controls.enableRotate = true;
     controls.enableZoom = true;
-    controls.enablePan = true;
+    controls.enablePan = false; // Disabled to prevent two-finger pan gesture on iPad
 
     // Remove azimuth constraints for full horizontal rotation
     // Don't set minAzimuthAngle or maxAzimuthAngle for 360° horizontal rotation
@@ -40,7 +41,11 @@ function initViewer() {
     // Smooth rotation behavior
     controls.rotateSpeed = 1.0;
     controls.zoomSpeed = 1.2;
-    controls.panSpeed = 0.8;
+    // controls.panSpeed = 0.8; // Not needed since pan is disabled
+
+    // Set zoom constraints to prevent objects from disappearing when zooming too close
+    controls.minDistance = 0.1; // Minimum zoom distance
+    controls.maxDistance = 100; // Maximum zoom distance
 
     // Set target at origin for proper rotation center
     controls.target.set(0, 0, 0);
@@ -103,7 +108,8 @@ function initAxisHelper() {
     axisScene.background = new THREE.Color(0xf0f0f0); // Match the background color
 
     // Setup camera for axis scene - using orthographic camera to avoid perspective distortion
-    axisCamera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 100); // Wider view to accommodate labels at ends
+    // Set smaller near clipping plane for axis camera as well
+    axisCamera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.001, 100); // Wider view to accommodate labels at ends
     axisCamera.position.set(0, 0, 4); // Moved further back for better visibility
     axisCamera.lookAt(0, 0, 0);
 

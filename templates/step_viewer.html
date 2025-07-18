@@ -339,10 +339,11 @@
 
                     console.log('📦 Viewer container found, creating viewer...');
 
-                    // Configure viewer with proper Online3DViewer parameters
+                    // Configure viewer with proper Online3DViewer parameters  
+                    // Use purple (#9146FF) as default to match the UI color selector
                     const viewerConfig = {
                         backgroundColor: new OV.RGBAColor(248, 249, 250, 255),
-                        defaultColor: new OV.RGBColor(200, 200, 200),
+                        defaultColor: new OV.RGBColor(145, 70, 255), // Purple #9146FF in RGB
                         // Add EdgeSettings to show edges by default with dark gray color
                         edgeSettings: new OV.EdgeSettings(
                             true,  // showEdges - enabled by default

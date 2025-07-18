@@ -415,7 +415,7 @@ class MeasureTool {
         const altRaycaster = new THREE.Raycaster();
         altRaycaster.setFromCamera(this.mouse, this.camera);
         altRaycaster.far = 1000; // Extend far distance
-        altRaycaster.near = 0.01; // Closer near distance
+        altRaycaster.near = 0.001; // Much closer near distance to match camera settings
 
         const altIntersects = altRaycaster.intersectObject(this.scene, true);
         if (altIntersects.length > 0) {
