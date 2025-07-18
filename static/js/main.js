@@ -132,46 +132,114 @@ async function initializeMorfisApp() {
     };
 
     // Calculate actual viewport height to fix iPad viewport issues
-    const setViewportHeight = () => {
-        // Use window.innerHeight which excludes browser UI elements
-        const vh = window.innerHeight;
+    let baseViewportHeight = window.innerHeight; // Store the initial height without keyboard
+    let isKeyboardVisible = false;
+
+    const setViewportHeight = (forceUpdate = false) => {
+        const currentHeight = window.innerHeight;
+
+        // If keyboard is visible and this isn't a forced update, don't change the viewport height
+        if (isKeyboardVisible && !forceUpdate) {
+            console.log('Keyboard is visible, skipping viewport height update');
+            return;
+        }
+
+        // Use the current height (which excludes browser UI elements)
+        const vh = forceUpdate ? baseViewportHeight : currentHeight;
         document.documentElement.style.setProperty('--app-height', `${vh}px`);
         console.log('Viewport height set to:', vh);
     };
 
-    // Set viewport height on load and resize
-    setViewportHeight();
-    window.addEventListener('resize', setViewportHeight);
+    // Detect keyboard show/hide on mobile devices
+    const detectKeyboard = () => {
+        const currentHeight = window.innerHeight;
+        const heightDifference = baseViewportHeight - currentHeight;
 
-    // Also listen for orientation changes on mobile devices
-    window.addEventListener('orientationchange', () => {
-        // Delay to ensure the viewport has adjusted after rotation
-        setTimeout(setViewportHeight, 100);
+        // If viewport height decreased by more than 150px, keyboard is likely visible
+        if (heightDifference > 150) {
+            if (!isKeyboardVisible) {
+                isKeyboardVisible = true;
+                console.log('Keyboard detected as visible');
+                // Don't update viewport height when keyboard appears
+            }
+        } else {
+            if (isKeyboardVisible) {
+                isKeyboardVisible = false;
+                console.log('Keyboard detected as hidden');
+                // Restore original viewport height when keyboard disappears
+                setTimeout(() => setViewportHeight(true), 100);
+            }
+        }
+    };
+
+    // Set initial viewport height
+    setViewportHeight();
+
+    // Handle window resize with keyboard detection
+    window.addEventListener('resize', () => {
+        detectKeyboard();
+        if (!isKeyboardVisible) {
+            setViewportHeight();
+        }
     });
 
-    // Additional listeners for mobile browser behavior
-    // Handle cases where the viewport changes without resize events (iOS Safari address bar)
+    // Handle orientation changes
+    window.addEventListener('orientationchange', () => {
+        // Reset base height after orientation change
+        setTimeout(() => {
+            baseViewportHeight = window.innerHeight;
+            setViewportHeight(true);
+            isKeyboardVisible = false; // Reset keyboard state after orientation change
+        }, 200);
+    });
+
+    // Enhanced keyboard detection for iOS
+    window.addEventListener('focusin', () => {
+        // Small delay to let the keyboard animation start
+        setTimeout(detectKeyboard, 300);
+    });
+
+    window.addEventListener('focusout', () => {
+        // Delay to let keyboard hide animation complete
+        setTimeout(() => {
+            isKeyboardVisible = false;
+            setViewportHeight(true);
+        }, 300);
+    });
+
+    // Fallback viewport change detection (but ignore when keyboard is visible)
     let initialViewportHeight = window.innerHeight;
 
     const handleViewportChange = () => {
         const currentHeight = window.innerHeight;
+
+        // Don't handle viewport changes when keyboard is visible
+        if (isKeyboardVisible) {
+            return;
+        }
+
         // Only update if there's a significant change (more than 50px)
         if (Math.abs(currentHeight - initialViewportHeight) > 50) {
             setViewportHeight();
             initialViewportHeight = currentHeight;
+            baseViewportHeight = currentHeight; // Update base height
         }
     };
 
-    // Check viewport height on scroll (for iOS Safari address bar behavior)
+    // Check viewport height on scroll (but ignore when keyboard is visible)
     let scrollTimer;
     window.addEventListener('scroll', () => {
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(handleViewportChange, 150);
+        if (!isKeyboardVisible) {
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(handleViewportChange, 150);
+        }
     }, { passive: true });
 
-    // Also check on touch events for mobile interactions
+    // Visual feedback mode detection
     window.addEventListener('touchend', () => {
-        setTimeout(handleViewportChange, 300);
+        if (!isKeyboardVisible) {
+            setTimeout(handleViewportChange, 300);
+        }
     }, { passive: true });
 
     // Calculate scrollbar width on load

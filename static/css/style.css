@@ -44,6 +44,17 @@ body {
         height: var(--app-height, 100vh);
         min-height: var(--app-height, 100vh);
     }
+
+    /* Prevent layout jumps when virtual keyboard appears on iOS */
+    .input-container {
+        position: relative;
+        z-index: 1000;
+    }
+
+    /* Ensure input stays accessible when keyboard appears */
+    .command-form {
+        position: relative;
+    }
 }
 
 /* Add padding to the top of the container to account for the fixed header */

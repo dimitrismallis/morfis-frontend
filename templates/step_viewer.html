@@ -339,7 +339,7 @@
 
                     console.log('📦 Viewer container found, creating viewer...');
 
-                    // Configure viewer with proper Online3DViewer parameters  
+                    // Configure viewer with proper Online3DViewer parameters
                     // Use purple (#9146FF) as default to match the UI color selector
                     const viewerConfig = {
                         backgroundColor: new OV.RGBAColor(248, 249, 250, 255),
@@ -641,31 +641,85 @@
         }
 
         // Calculate actual viewport height to fix iPad viewport issues
-        const setViewportHeight = () => {
-            // Use window.innerHeight which excludes serments
-            const vh = window.innerHeight;
+        let baseViewportHeight = window.innerHeight; // Store the initial height without keyboard
+        let isKeyboardVisible = false;
+
+        const setViewportHeight = (forceUpdate = false) => {
+            const currentHeight = window.innerHeight;
+
+            // If keyboard is visible and this isn't a forced update, don't change the viewport height
+            if (isKeyboardVisible && !forceUpdate) {
+                console.log('Keyboard is visible, skipping viewport height update');
+                return;
+            }
+
+            // Use the current height (which excludes browser UI elements)
+            const vh = forceUpdate ? baseViewportHeight : currentHeight;
             document.documentElement.style.setProperty('--app-height', `${vh}px`);
             console.log('Viewport height set to:', vh);
         };
 
-        // Set viewport height on load and resize
+        // Detect keyboard show/hide on mobile devices
+        const detectKeyboard = () => {
+            const currentHeight = window.innerHeight;
+            const heightDifference = baseViewportHeight - currentHeight;
+
+            // If viewport height decreased by more than 150px, keyboard is likely visible
+            if (heightDifference > 150) {
+                if (!isKeyboardVisible) {
+                    isKeyboardVisible = true;
+                    console.log('Keyboard detected as visible');
+                    // Don't update viewport height when keyboard appears
+                }
+            } else {
+                if (isKeyboardVisible) {
+                    isKeyboardVisible = false;
+                    console.log('Keyboard detected as hidden');
+                    // Restore original viewport height when keyboard disappears
+                    setTimeout(() => setViewportHeight(true), 100);
+                }
+            }
+        };
+
+        // Set initial viewport height
         setViewportHeight();
+
+        // Handle window resize with keyboard detection
         window.addEventListener('resize', () => {
-            setViewportHeight();
+            detectKeyboard();
+            if (!isKeyboardVisible) {
+                setViewportHeight();
+            }
             if (viewer) {
                 viewer.Resize();
             }
         });
 
-        // Also listen for orientation changes on mobile devices
+        // Handle orientation changes
         window.addEventListener('orientationchange', () => {
-            // Delay to ensure the viewport has adjusted after rotation
+            // Reset base height after orientation change
             setTimeout(() => {
-                setViewportHeight();
+                baseViewportHeight = window.innerHeight;
+                setViewportHeight(true);
+                isKeyboardVisible = false; // Reset keyboard state after orientation change
                 if (viewer) {
                     viewer.Resize();
                 }
-            }, 100);
+            }, 200);
+        });
+
+        // Enhanced keyboard detection for iOS
+        window.addEventListener('focusin', () => {
+            // Small delay to let the keyboard animation start
+            setTimeout(detectKeyboard, 300);
+        });
+
+        window.addEventListener('focusout', () => {
+            // Delay to let keyboard hide animation complete
+            setTimeout(() => {
+                isKeyboardVisible = false;
+                setViewportHeight(true);
+            }, 300);
         });
     </script>
 </body>

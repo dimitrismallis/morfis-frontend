@@ -73,8 +73,8 @@ class IntegratedViewer {
         const containerHeight = this.container.clientHeight || 600;
         const aspectRatio = containerWidth / containerHeight;
 
-        // Set much smaller near clipping plane to prevent objects disappearing when zooming in close
-        this.camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.001, 1000);
+        // Set extremely small near clipping plane to prevent objects disappearing when zooming in very close
+        this.camera = new THREE.PerspectiveCamera(60, aspectRatio, 0.0001, 1000);
         this.camera.position.z = 12;
 
         // Renderer setup
@@ -105,7 +105,7 @@ class IntegratedViewer {
         this.controls.maxPolarAngle = Math.PI; // Allow 180° vertical (orbit style)
         this.controls.enableRotate = true;
         this.controls.enableZoom = true;
-        this.controls.enablePan = false; // Disabled to prevent two-finger pan gesture on iPad
+        this.controls.enablePan = true;
 
         // Remove azimuth constraints for full horizontal rotation
         // Don't set minAzimuthAngle or maxAzimuthAngle for 360° horizontal rotation
@@ -113,10 +113,10 @@ class IntegratedViewer {
         // Smooth rotation behavior
         this.controls.rotateSpeed = 1.0;
         this.controls.zoomSpeed = 1.2;
-        // this.controls.panSpeed = 0.8; // Not needed since pan is disabled
+        this.controls.panSpeed = 0.8;
 
         // Set zoom constraints to prevent objects from disappearing when zooming too close
-        this.controls.minDistance = 0.1; // Minimum zoom distance
+        this.controls.minDistance = 0.01; // Very small minimum zoom distance for close inspection
         this.controls.maxDistance = 100; // Maximum zoom distance
 
         // Set target at origin for proper rotation center
@@ -367,8 +367,8 @@ class IntegratedViewer {
         this.axisScene = new THREE.Scene();
         this.axisScene.background = new THREE.Color(0xf0f0f0);
 
-        // Setup camera for axis scene - set smaller near clipping plane
-        this.axisCamera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.001, 100);
+        // Setup camera for axis scene - set extremely small near clipping plane
+        this.axisCamera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.0001, 100);
         this.axisCamera.position.set(0, 0, 4);
         this.axisCamera.lookAt(0, 0, 0);
 
