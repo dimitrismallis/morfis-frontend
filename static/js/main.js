@@ -483,9 +483,101 @@ async function initializeMorfisApp() {
         }
     }
 
+    // Function to refresh rollback buttons for all system messages
+    function refreshRollbackButtons() {
+        const messages = conversationContainer.getElementsByClassName('message');
+        let lastSystemMessage = null;
+
+        // Find the last system message
+        for (let message of messages) {
+            if (message.classList.contains('system-message')) {
+                lastSystemMessage = message;
+            }
+        }
+
+        // Update rollback buttons for all system messages
+        for (let message of messages) {
+            if (message.classList.contains('system-message')) {
+                const messageContent = message.querySelector('.message-content');
+                let buttonContainer = messageContent.querySelector('.button-container');
+
+                // Save feedback state before removing container
+                let feedbackState = null;
+                if (buttonContainer) {
+                    const thumbsUpBtn = buttonContainer.querySelector('.feedback-btn.thumbs-up');
+                    const thumbsDownBtn = buttonContainer.querySelector('.feedback-btn.thumbs-down');
+                    feedbackState = {
+                        thumbsUp: thumbsUpBtn ? thumbsUpBtn.classList.contains('active') : false,
+                        thumbsDown: thumbsDownBtn ? thumbsDownBtn.classList.contains('active') : false
+                    };
+                    buttonContainer.remove();
+                }
+
+                // Create button container for all system messages
+                buttonContainer = document.createElement('div');
+                buttonContainer.className = 'button-container';
+
+                // Add rollback button only if this is not the last system message and not the first message
+                const msgIndex = parseInt(message.dataset.messageIndex);
+                if (message !== lastSystemMessage && msgIndex > 0) {
+                    const rollbackButton = document.createElement('button');
+                    rollbackButton.className = 'rollback-btn';
+                    rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
+                    rollbackButton.onclick = () => handleRollback(msgIndex, rollbackButton);
+                    
+                    // Disable rollback button if we're waiting for a backend response
+                    if (isWaitingForResponse) {
+                        rollbackButton.disabled = true;
+                        rollbackButton.classList.add('waiting');
+                    }
+                    
+                    buttonContainer.appendChild(rollbackButton);
+                }
+
+                // Add feedback buttons only for generated responses (not welcome messages)
+                if (message.dataset.isGenerated === 'true') {
+                    const feedbackContainer = document.createElement('div');
+                    feedbackContainer.className = 'feedback-container';
+
+                    // Create thumbs up button
+                    const thumbsUpBtn = document.createElement('button');
+                    thumbsUpBtn.className = 'feedback-btn thumbs-up';
+                    thumbsUpBtn.innerHTML = '<i class="fas fa-thumbs-up"></i>';
+                    thumbsUpBtn.title = 'This response was helpful';
+                    thumbsUpBtn.setAttribute('aria-label', 'Mark as helpful');
+                    thumbsUpBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_up', thumbsUpBtn);
+
+                    // Create thumbs down button
+                    const thumbsDownBtn = document.createElement('button');
+                    thumbsDownBtn.className = 'feedback-btn thumbs-down';
+                    thumbsDownBtn.innerHTML = '<i class="fas fa-thumbs-down"></i>';
+                    thumbsDownBtn.title = 'This response was not helpful';
+                    thumbsDownBtn.setAttribute('aria-label', 'Mark as not helpful');
+                    thumbsDownBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_down', thumbsDownBtn);
+
+                    // Restore feedback state if it was previously set
+                    if (feedbackState) {
+                        if (feedbackState.thumbsUp) {
+                            thumbsUpBtn.classList.add('active');
+                        }
+                        if (feedbackState.thumbsDown) {
+                            thumbsDownBtn.classList.add('active');
+                        }
+                    }
+
+                    feedbackContainer.appendChild(thumbsUpBtn);
+                    feedbackContainer.appendChild(thumbsDownBtn);
+                    buttonContainer.appendChild(feedbackContainer);
+                }
+
+                messageContent.appendChild(buttonContainer);
+            }
+        }
+    }
+
     async function handleRollback(targetIndex, button) {
-        // Prevent multiple submissions
-        if (button.classList.contains('loading')) {
+        // Prevent multiple submissions or clicks when disabled
+        if (button.classList.contains('loading') || button.disabled || isWaitingForResponse) {
             return;
         }
 
@@ -538,6 +630,28 @@ async function initializeMorfisApp() {
                     messagesToRemove.forEach(message => message.remove());
 
                     console.log(`Removed ${messagesToRemove.length} messages after rollback point`);
+
+                    // Reset messageIndex to match the current UI state
+                    // The messageIndex should be the highest system message index + 1
+                    const remainingMessages = Array.from(conversationContainer.getElementsByClassName('message'));
+                    let highestIndex = -1;
+
+                    for (let message of remainingMessages) {
+                        if (message.classList.contains('system-message') && message.dataset.messageIndex) {
+                            const msgIndex = parseInt(message.dataset.messageIndex);
+                            if (msgIndex > highestIndex) {
+                                highestIndex = msgIndex;
+                            }
+                        }
+                    }
+
+                    // Set messageIndex to be one more than the highest remaining system message index
+                    messageIndex = highestIndex + 1;
+                    console.log(`Reset messageIndex to ${messageIndex} after rollback`);
+
+                    // Refresh rollback buttons for all remaining messages
+                    // This ensures the message we rolled back to becomes the "last" message and loses its rollback button
+                    refreshRollbackButtons();
                 } else {
                     console.error(`Target system message with index ${targetIndex} not found`);
                 }
@@ -753,88 +867,8 @@ async function initializeMorfisApp() {
             await typeMessage(textContainer, text);
             console.log('Finished progressive typing');
 
-            // After the message is typed, update rollback buttons for all system messages
-            const messages = conversationContainer.getElementsByClassName('message');
-            let lastSystemMessage = null;
-
-            // Find the last system message
-            for (let message of messages) {
-                if (message.classList.contains('system-message')) {
-                    lastSystemMessage = message;
-                }
-            }
-
-            // Add or update rollback buttons for all system messages except the last one
-            for (let message of messages) {
-                if (message.classList.contains('system-message')) {
-                    const messageContent = message.querySelector('.message-content');
-                    let buttonContainer = messageContent.querySelector('.button-container');
-
-                    // Save feedback state before removing container
-                    let feedbackState = null;
-                    if (buttonContainer) {
-                        const thumbsUpBtn = buttonContainer.querySelector('.feedback-btn.thumbs-up');
-                        const thumbsDownBtn = buttonContainer.querySelector('.feedback-btn.thumbs-down');
-                        feedbackState = {
-                            thumbsUp: thumbsUpBtn ? thumbsUpBtn.classList.contains('active') : false,
-                            thumbsDown: thumbsDownBtn ? thumbsDownBtn.classList.contains('active') : false
-                        };
-                        buttonContainer.remove();
-                    }
-
-                    // Create button container for all system messages
-                    buttonContainer = document.createElement('div');
-                    buttonContainer.className = 'button-container';
-
-                    // Add rollback button only if this is not the last system message and not the first message
-                    const msgIndex = parseInt(message.dataset.messageIndex);
-                    if (message !== lastSystemMessage && msgIndex > 0) {
-                        const rollbackButton = document.createElement('button');
-                        rollbackButton.className = 'rollback-btn';
-                        rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
-                        rollbackButton.onclick = () => handleRollback(msgIndex, rollbackButton);
-                        buttonContainer.appendChild(rollbackButton);
-                    }
-
-                    // Add feedback buttons only for generated responses (not welcome messages)
-                    if (message.dataset.isGenerated === 'true') {
-                        const feedbackContainer = document.createElement('div');
-                        feedbackContainer.className = 'feedback-container';
-
-                        // Create thumbs up button
-                        const thumbsUpBtn = document.createElement('button');
-                        thumbsUpBtn.className = 'feedback-btn thumbs-up';
-                        thumbsUpBtn.innerHTML = '<i class="fas fa-thumbs-up"></i>';
-                        thumbsUpBtn.title = 'This response was helpful';
-                        thumbsUpBtn.setAttribute('aria-label', 'Mark as helpful');
-                        thumbsUpBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_up', thumbsUpBtn);
-
-                        // Create thumbs down button
-                        const thumbsDownBtn = document.createElement('button');
-                        thumbsDownBtn.className = 'feedback-btn thumbs-down';
-                        thumbsDownBtn.innerHTML = '<i class="fas fa-thumbs-down"></i>';
-                        thumbsDownBtn.title = 'This response was not helpful';
-                        thumbsDownBtn.setAttribute('aria-label', 'Mark as not helpful');
-                        thumbsDownBtn.onclick = () => handleFeedback(parseInt(message.dataset.messageIndex), 'thumbs_down', thumbsDownBtn);
-
-                        // Restore feedback state if it was previously set
-                        if (feedbackState) {
-                            if (feedbackState.thumbsUp) {
-                                thumbsUpBtn.classList.add('active');
-                            }
-                            if (feedbackState.thumbsDown) {
-                                thumbsDownBtn.classList.add('active');
-                            }
-                        }
-
-                        feedbackContainer.appendChild(thumbsUpBtn);
-                        feedbackContainer.appendChild(thumbsDownBtn);
-                        buttonContainer.appendChild(feedbackContainer);
-                    }
-
-                    messageContent.appendChild(buttonContainer);
-                }
-            }
+            // After the message is typed, refresh rollback buttons for all system messages
+            refreshRollbackButtons();
         } else {
             // For non-system messages, just add the text
             contentDiv.textContent = text;
@@ -1011,6 +1045,9 @@ async function initializeMorfisApp() {
                 submitButton.classList.remove('waiting');
             }
         }
+        
+        // Refresh rollback buttons to update their disabled state based on waiting status
+        refreshRollbackButtons();
     }
 
     // Function to show loading message without starting trajectory polling
