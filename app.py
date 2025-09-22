@@ -258,10 +258,12 @@ def make_backend_request(endpoint, method="GET", data=None):
         if data is None:
             data = {}
         data["session_id"] = session_id
-        return requests.post(url, json=data, headers=headers)
+        # 6 minutes timeout
+        return requests.post(url, json=data, headers=headers, timeout=360)
     else:
         params = {"session_id": session_id}
-        return requests.get(url, params=params, headers=headers)
+        # 6 minutes timeout
+        return requests.get(url, params=params, headers=headers, timeout=360)
 
 
 def process_model_data(response_data):
