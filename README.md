@@ -103,10 +103,18 @@ A Flask web application for 3D design generation and visualization.
 
 ### Heroku
 
+
 1. **Install Heroku CLI**
 2. **Login to Heroku**
    ```bash
+   # If you have browser access:
    heroku login
+   
+   # If you need to use API key (recommended for servers/CI):
+   heroku auth:login --interactive
+   # Enter your email and API key when prompted
+   # Note: If you get "Cannot log in with HEROKU_API_KEY set" error, 
+   # first run: unset HEROKU_API_KEY
    ```
 
 3. **Create Heroku app**

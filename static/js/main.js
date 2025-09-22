@@ -524,13 +524,13 @@ async function initializeMorfisApp() {
                     rollbackButton.className = 'rollback-btn';
                     rollbackButton.innerHTML = '<i class="fas fa-history"></i> Rollback here';
                     rollbackButton.onclick = () => handleRollback(msgIndex, rollbackButton);
-                    
+
                     // Disable rollback button if we're waiting for a backend response
                     if (isWaitingForResponse) {
                         rollbackButton.disabled = true;
                         rollbackButton.classList.add('waiting');
                     }
-                    
+
                     buttonContainer.appendChild(rollbackButton);
                 }
 
@@ -964,7 +964,7 @@ async function initializeMorfisApp() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ command: command })
-            }, 180000); // 3 minutes timeout for generation
+            }, 360000); // 6 minutes timeout for generation
 
             const data = await response.json();
 
@@ -1045,7 +1045,7 @@ async function initializeMorfisApp() {
                 submitButton.classList.remove('waiting');
             }
         }
-        
+
         // Refresh rollback buttons to update their disabled state based on waiting status
         refreshRollbackButtons();
     }
