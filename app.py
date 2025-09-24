@@ -1,5 +1,9 @@
 import logging
 import os
+import subprocess
+import tempfile
+import threading
+import time
 import uuid
 from datetime import datetime, timedelta
 
@@ -94,6 +98,8 @@ def check_password_protection():
             "get_trajectory_html",
             "get_app_config",
             "get_session_stats",
+            "execute_build123d",
+            "stop_yacv_server",
         ]
         if request.endpoint in protected_endpoints:
             return jsonify({"error": "Authentication required"}), 401
@@ -319,6 +325,11 @@ def index():
 @app.route("/step-viewer")
 def step_viewer():
     return render_template("step_viewer.html")
+
+
+@app.route("/yacv-demo")
+def yacv_demo():
+    return render_template("yacv_demo.html")
 
 
 @app.route("/static/cadmodels/<filename>")
@@ -973,6 +984,178 @@ def submit_feedback():
             ),
             500,
         )
+
+
+# Global storage for YACV server processes
+yacv_processes = {}
+
+
+@app.route("/api/execute-build123d", methods=["POST"])
+def execute_build123d():
+    """Execute Build123d code using YACV server."""
+    try:
+        data = request.json
+        code = data.get("code", "")
+
+        if not code.strip():
+            return jsonify({"success": False, "error": "No code provided"}), 400
+
+        # Get session ID for isolation
+        session_id = get_session_id()
+
+        # Create a temporary directory for this session
+        temp_dir = tempfile.mkdtemp(prefix=f"yacv_session_{session_id[:8]}_")
+        script_path = os.path.join(temp_dir, "build123d_script.py")
+
+        # Copy YACV frontend files to the temp directory
+        import shutil
+        yacv_frontend_path = "/usr/local/python/current/lib/python3.12/site-packages/yacv_server/frontend"
+        frontend_dest = os.path.join(temp_dir, "frontend")
+
+        if os.path.exists(yacv_frontend_path):
+            shutil.copytree(yacv_frontend_path, frontend_dest)
+            logging.info(f"Copied YACV frontend files to {frontend_dest}")
+
+        # Write the Build123d code to a temporary file
+        with open(script_path, 'w') as f:
+            # Indent the user's code properly
+            indented_code = '\n'.join(
+                ['    ' + line for line in code.split('\n')])
+
+            # Add necessary imports and YACV server setup
+            f.write(f"""#!/usr/bin/env python3
+import os
+import sys
+
+print("Starting Build123d script...")
+
+# Set up YACV server environment
+os.environ['YACV_HOST'] = 'localhost'
+os.environ['YACV_PORT'] = '{32323 + hash(session_id) % 1000}'
+os.environ['YACV_GRACEFUL_SECS_CONNECT'] = '120'  # Wait longer for frontend connection
+
+try:
+    # Import YACV server first
+    import yacv_server
+    print("YACV server imported successfully")
+    
+    # Ensure we're in the right directory for frontend files
+    import os
+    print(f"Current working directory: {{os.getcwd()}}")
+    print(f"Frontend files should be at: {{os.path.join(os.getcwd(), 'frontend')}}")
+    
+    # Create YACV instance explicitly
+    yacv_instance = yacv_server.YACV()
+    print(f"YACV server instance created on port {{os.environ['YACV_PORT']}}")
+    
+    # User's Build123d code
+{indented_code}
+
+    print("Build123d code executed successfully")
+    print("YACV server is running and waiting for frontend connections...")
+    print(f"Server URL: http://localhost:{{os.environ['YACV_PORT']}}")
+    
+    # Keep server alive indefinitely until manual termination
+    import time
+    while True:
+        time.sleep(10)
+        print("YACV server still active...")
+    
+except KeyboardInterrupt:
+    print("YACV server stopped by user")
+except Exception as e:
+    print(f"Error executing Build123d code: {{e}}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+""")
+
+        # Start YACV server in background
+        server_port = 32323 + hash(session_id) % 1000
+        server_url = f"http://localhost:{server_port}"
+
+        # Kill any existing process for this session
+        if session_id in yacv_processes:
+            try:
+                yacv_processes[session_id].terminate()
+                yacv_processes[session_id].wait(timeout=5)
+            except:
+                pass
+
+        # Create a minimal clean environment for subprocess
+        env = {
+            'PATH': '/usr/local/python/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            'DISPLAY': ':99',
+            'LIBGL_ALWAYS_INDIRECT': '1',
+            'LIBGL_ALWAYS_SOFTWARE': '1',
+            'YACV_HOST': 'localhost',
+            'YACV_PORT': str(32323 + hash(session_id) % 1000),
+            # Point to copied frontend
+            'FRONTEND_BASE_PATH': os.path.join(temp_dir, "frontend"),
+            'PYDEVD_DISABLE_FILE_VALIDATION': '1',
+            'PYTHONUNBUFFERED': '1',
+            'HOME': '/tmp',
+            'PYTHONDONTWRITEBYTECODE': '1'  # Don't create .pyc files
+        }
+
+        # Start new process with clean environment
+        process = subprocess.Popen([
+            '/usr/local/python/current/bin/python3', '-u', script_path
+        ], cwd=temp_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+
+        yacv_processes[session_id] = process
+
+        # Wait a moment to see if the script starts successfully
+        time.sleep(2)
+
+        # Check if process is still running
+        if process.poll() is not None:
+            # Process ended, check for errors
+            stdout, stderr = process.communicate()
+            logging.error(f"Build123d script failed: {stderr}")
+            return jsonify({
+                "success": False,
+                "error": f"Script execution failed: {stderr[:500]}"
+            }), 500
+
+        logging.info(
+            f"Build123d script started successfully for session {session_id}")
+
+        return jsonify({
+            "success": True,
+            "server_url": server_url,
+            "session_id": session_id,
+            "message": "Build123d code executed successfully"
+        })
+
+    except Exception as e:
+        logging.error(f"Error executing Build123d code: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to execute Build123d code: {str(e)}"
+        }), 500
+
+
+@app.route("/api/stop-yacv/<session_id>", methods=["POST"])
+def stop_yacv_server(session_id):
+    """Stop YACV server for a specific session."""
+    try:
+        if session_id in yacv_processes:
+            process = yacv_processes[session_id]
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            del yacv_processes[session_id]
+
+            return jsonify({"success": True, "message": "YACV server stopped"})
+        else:
+            return jsonify({"success": False, "error": "No server found for session"}), 404
+
+    except Exception as e:
+        logging.error(f"Error stopping YACV server: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
