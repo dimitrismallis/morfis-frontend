@@ -326,11 +326,62 @@ async function initializeMorfisApp() {
             addMessage(config.welcome_message, 'system');
         }
 
-        // Initialize integrated viewer with configuration
+        // Initialize YACV Build123d viewer
         const modelViewer = document.getElementById('modelViewer');
-        if (modelViewer && typeof initIntegratedViewer === 'function') {
-            console.log('Initializing integrated viewer with config:', config);
-            await initIntegratedViewer(modelViewer, config);
+        if (modelViewer) {
+            console.log('🔧 Checking for YACV Build123d viewer...');
+
+            // Check if YACVBuild123dViewer class is available
+            if (typeof YACVBuild123dViewer !== 'undefined') {
+                console.log('✅ YACVBuild123dViewer class found, initializing...');
+
+                try {
+                    // Create global YACV viewer instance
+                    window.yacvViewer = new YACVBuild123dViewer();
+                    await window.yacvViewer.init(modelViewer);
+
+                    // Auto-load a simple default Build123d model
+                    const defaultBuild123dCode = `from build123d import *
+
+# Create a simple box
+with BuildPart() as part:
+    Box(20, 20, 20)
+
+# Show in YACV viewer
+from yacv_server import show
+show(part, names=["SimpleBox"])`;
+
+                    // Load the default model
+                    console.log('🚀 Loading default Build123d model...');
+                    await window.yacvViewer.executeBuild123dCode(defaultBuild123dCode);
+                    console.log('✅ Default Build123d model loaded successfully');
+
+                    // Show the YACV controls after successful initialization
+                    const yacvControls = document.getElementById('yacvControls');
+                    if (yacvControls) {
+                        yacvControls.style.display = 'block';
+                    }
+
+                    // Mark YACV as primary viewer
+                    window.yacvViewerActive = true;
+
+                } catch (error) {
+                    console.error('❌ Failed to initialize YACV viewer:', error);
+
+                    // Fall back to integrated viewer
+                    console.log('🔄 Falling back to integrated viewer...');
+                    if (typeof initIntegratedViewer === 'function') {
+                        await initIntegratedViewer(modelViewer, config);
+                    }
+                }
+            } else {
+                console.warn('⚠️ YACVBuild123dViewer class not found, falling back to integrated viewer');
+
+                // Fall back to integrated viewer
+                if (typeof initIntegratedViewer === 'function') {
+                    await initIntegratedViewer(modelViewer, config);
+                }
+            }
         }
 
         // Update model if one is provided in the initial configuration
@@ -1120,3 +1171,23 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+// Global function to open YACV viewer in new window
+function openYacvInNewWindow() {
+    if (window.yacvViewer && window.yacvViewer.lastServerUrl) {
+        const newWindow = window.open(
+            window.yacvViewer.lastServerUrl + '/index.html',
+            'yacv_viewer',
+            'width=1200,height=800,scrollbars=yes,resizable=yes'
+        );
+        if (newWindow) {
+            console.log('✅ YACV viewer opened in new window');
+        } else {
+            console.error('❌ Failed to open YACV viewer - popup blocked?');
+            alert('Failed to open 3D viewer. Please check your popup blocker settings.');
+        }
+    } else {
+        console.error('❌ No YACV server URL available');
+        alert('No 3D model is currently loaded. Please wait for the model to load first.');
+    }
+}

@@ -1014,6 +1014,34 @@ def execute_build123d():
 
         if os.path.exists(yacv_frontend_path):
             shutil.copytree(yacv_frontend_path, frontend_dest)
+
+            # Add custom CSS to hide model control buttons
+            custom_css = """
+/* Hide the model control buttons (faces, edges, vertices) */
+.v-expansion-panel-title > .v-btn-toggle {
+    display: none !important;
+}
+
+/* Adjust spacing since buttons are hidden */
+.model-name {
+    margin-left: 16px;
+}
+"""
+
+            # Inject CSS into the main HTML file
+            index_html_path = os.path.join(frontend_dest, 'index.html')
+            if os.path.exists(index_html_path):
+                with open(index_html_path, 'r') as f:
+                    content = f.read()
+
+                # Add CSS styles in the head section
+                css_styles = f'<style>\n{custom_css}\n</style>'
+                content = content.replace(
+                    '</head>', f'  {css_styles}\n</head>')
+
+                with open(index_html_path, 'w') as f:
+                    f.write(content)
+
             logging.info(f"Copied YACV frontend files to {frontend_dest}")
 
         # Write the Build123d code to a temporary file

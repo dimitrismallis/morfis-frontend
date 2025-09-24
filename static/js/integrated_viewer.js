@@ -1303,10 +1303,33 @@ function initIntegratedViewer(container, config) {
     return window.integratedViewer.init(container, config);
 }
 
-// Update model function for compatibility
+// Update model function for compatibility - now supports Build123d code
 function updateModel(modelData) {
-    if (window.integratedViewer && window.integratedViewer.initialized) {
+    // Only proceed if we have model data
+    if (!modelData) {
+        console.log('📄 No model data provided to updateModel');
+        return;
+    }
+
+    // Check if YACV viewer is active and available
+    if (window.yacvViewerActive && window.yacvViewer) {
+        console.log('🔄 YACV is active, handling model update...');
+
+        // Check if modelData contains Build123d code
+        if (modelData.build123d_code) {
+            console.log('🔄 Updating model with Build123d code via YACV');
+            window.yacvViewer.executeBuild123dCode(modelData.build123d_code)
+                .then(() => console.log('✅ Build123d model updated successfully'))
+                .catch(error => console.error('❌ Failed to update Build123d model:', error));
+        } else {
+            console.log('⚠️ Model data does not contain Build123d code, ignoring for YACV viewer');
+        }
+    } else if (window.integratedViewer && window.integratedViewer.initialized) {
+        // Use traditional STEP file viewer
+        console.log('🔄 Using integrated viewer for model update');
         window.integratedViewer.updateModel(modelData);
+    } else {
+        console.warn('⚠️ No viewer available to handle model update');
     }
 }
 

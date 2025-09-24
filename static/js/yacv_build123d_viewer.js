@@ -109,6 +109,9 @@ class YACVBuild123dViewer {
             const result = await response.json();
 
             if (result.success) {
+                // Store the server URL globally
+                this.lastServerUrl = result.server_url;
+
                 // Server started, now connect to YACV viewer
                 setTimeout(() => {
                     this.connectToYACVServer(result.server_url || this.serverUrl);
