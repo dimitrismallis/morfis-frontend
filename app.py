@@ -1015,7 +1015,7 @@ def execute_build123d():
         if os.path.exists(yacv_frontend_path):
             shutil.copytree(yacv_frontend_path, frontend_dest)
 
-            # Add custom CSS to hide model control buttons
+            # Add custom CSS to hide everything until model loads, plus hide control buttons
             custom_css = """
 /* Hide the model control buttons (faces, edges, vertices) */
 .v-expansion-panel-title > .v-btn-toggle {
@@ -1026,6 +1026,31 @@ def execute_build123d():
 .model-name {
     margin-left: 16px;
 }
+
+/* Hide everything until model is loaded - more targeted approach */
+body {
+    background: white !important;
+}
+
+/* Hide the main Vue app container until model loads */
+#app {
+    opacity: 0 !important;
+    transition: opacity 0.3s ease;
+}
+
+/* Show when model-loaded class is added */
+#app.model-loaded {
+    opacity: 1 !important;
+}
+
+/* Also ensure main content is hidden */
+.v-main {
+    visibility: hidden;
+}
+
+.v-main.model-loaded {
+    visibility: visible;
+}
 """
 
             # Inject CSS into the main HTML file
@@ -1034,10 +1059,84 @@ def execute_build123d():
                 with open(index_html_path, 'r') as f:
                     content = f.read()
 
-                # Add CSS styles in the head section
+                # Add CSS styles and JavaScript in the head section
                 css_styles = f'<style>\n{custom_css}\n</style>'
+
+                # Add JavaScript to show content only when model actually loads
+                js_script = '''
+<script>
+// Smart model loading detection
+window.addEventListener('load', function() {
+    console.log('🎭 YACV: Initializing smart visibility control');
+    
+    let modelLoaded = false;
+    
+    // Function to show the content
+    function showContent() {
+        if (modelLoaded) return; // Prevent multiple calls
+        
+        const app = document.getElementById('app');
+        const mainElements = document.querySelectorAll('.v-main');
+        
+        if (app) {
+            app.classList.add('model-loaded');
+            console.log('🎨 YACV: App made visible');
+        }
+        
+        mainElements.forEach(main => {
+            main.classList.add('model-loaded');
+        });
+        
+        modelLoaded = true;
+        console.log('✅ YACV: Interface revealed after model load');
+    }
+    
+    // Observe for actual 3D content (canvas elements indicate WebGL/3D rendering)
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length > 0) {
+                for (let node of mutation.addedNodes) {
+                    if (node.nodeType === 1) { // Element node
+                        // Look for canvas (3D rendering) or specific YACV content indicators
+                        if (node.tagName === 'CANVAS' || 
+                            (node.querySelector && node.querySelector('canvas')) ||
+                            (node.classList && (
+                                node.classList.contains('threejs-canvas') ||
+                                node.classList.contains('viewer-canvas') ||
+                                node.classList.contains('model-viewer')
+                            ))) {
+                            console.log('🎨 YACV: 3D canvas detected, showing interface');
+                            showContent();
+                            observer.disconnect();
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+    });
+    
+    // Start observing
+    if (document.body) {
+        observer.observe(document.body, { 
+            childList: true, 
+            subtree: true,
+            attributes: false 
+        });
+    }
+    
+    // Fallback: Show after 3 seconds if no canvas detected (for safety)
+    setTimeout(function() {
+        if (!modelLoaded) {
+            console.log('🕐 YACV: Fallback timeout, showing interface');
+            showContent();
+        }
+    }, 3000);
+});
+</script>'''
+
                 content = content.replace(
-                    '</head>', f'  {css_styles}\n</head>')
+                    '</head>', f'  {css_styles}\n  {js_script}\n</head>')
 
                 with open(index_html_path, 'w') as f:
                     f.write(content)
