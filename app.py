@@ -347,11 +347,6 @@ def step_viewer():
     return render_template("step_viewer.html")
 
 
-@app.route("/yacv-demo")
-def yacv_demo():
-    return render_template("yacv_demo.html")
-
-
 @app.route("/static/cadmodels/<filename>")
 def serve_cad_file(filename):
     """Serve CAD files with proper CORS headers for 3D viewer"""
@@ -1027,7 +1022,7 @@ box = Box(50, 50, 50)
 clear()
 
 # Show the single object
-show(box, names=["test_box"])
+show(box, names=["cadmodel"])
 
 print("Single test box created and displayed in YACV!")
 """

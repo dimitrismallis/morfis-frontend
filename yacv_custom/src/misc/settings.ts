@@ -7,8 +7,8 @@ const firstTimeNames: Array<string> = []; // Needed for array values, which clea
 export const settings = (async () => {
     let settings = {
         preload: [
-            // Preload our test object so it appears immediately
-            window.location.origin + "/yacv/?api_object=test_box",
+            // Preload our CAD model so it appears immediately
+            window.location.origin + "/yacv/?api_object=cadmodel",
             // @ts-ignore
             // new URL('../../assets/fox.glb', import.meta.url).href,
             // @ts-ignore
@@ -28,7 +28,7 @@ export const settings = (async () => {
         // ModelViewer settings
         autoplay: true, // Global animation toggle
         arModes: 'webxr scene-viewer quick-look',
-        zoomSensitivity: 0.25,
+        zoomSensitivity: 1.0,
         orbitSensitivity: 1,
         panSensitivity: 1,
         exposure: 1,

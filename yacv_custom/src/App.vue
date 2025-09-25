@@ -149,6 +149,7 @@ document.body.addEventListener("drop", async e => {
     </v-main>
 
     <!-- The left collapsible sidebar has the list of models -->
+    <!-- Hidden for now as requested by user
     <sidebar :opened-init="openSidebarsByDefault" :width="300" side="left">
       <template #toolbar>
         <v-toolbar-title>Models</v-toolbar-title>
@@ -160,13 +161,14 @@ document.body.addEventListener("drop", async e => {
       </template>
       <models ref="models" :viewer="viewer" @remove-model="onModelRemoveRequest"/>
     </sidebar>
+    -->
 
     <!-- The right collapsible sidebar has the list of tools -->
     <sidebar :opened-init="openSidebarsByDefault" :width="48 * 3 /* buttons */ + 1 /* border? */" side="right">
       <template #toolbar>
         <v-toolbar-title>Tools</v-toolbar-title>
       </template>
-      <tools ref="tools" :viewer="viewer" @find-model="models?.findModel" @update-model="onModelUpdateRequest"/>
+      <tools ref="tools" :viewer="viewer" @find-model="undefined" @update-model="onModelUpdateRequest"/>
     </sidebar>
 
   </v-layout>

@@ -220,7 +220,7 @@ watch(disableTap, (newDisableTap) => {
                 :poster="poster" :shadow-intensity="sett.shadowIntensity" :skybox-image="sett.skybox"
                 :src="props.src" :zoom-sensitivity="sett.zoomSensitivity" alt="The 3D model(s)" camera-controls
                 camera-orbit="45deg 45deg auto" interaction-prompt="none" max-camera-orbit="Infinity 180deg auto"
-                min-camera-orbit="-Infinity 0deg 5%" style="width: 100%; height: 100%">
+                min-camera-orbit="-Infinity 0deg auto" style="width: 100%; height: 100%">
     <slot></slot>
     <!-- Add a progress bar to the top of the model viewer -->
     <div ref="progressBar" slot="progress-bar" class="progress-bar">

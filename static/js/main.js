@@ -525,7 +525,31 @@ async function initializeMorfisApp() {
         });
     }
 
-    // Test YACV Integration Button
+    // Dynamic 3D Object Update Buttons
+    const updateToBoxBtn = document.getElementById('updateToBox');
+    const updateToCylinderBtn = document.getElementById('updateToCylinder');
+    const updateToSphereBtn = document.getElementById('updateToSphere');
+
+    if (updateToBoxBtn) {
+        updateToBoxBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await updateYacvObject('box');
+        });
+    }
+
+    if (updateToCylinderBtn) {
+        updateToCylinderBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await updateYacvObject('cylinder');
+        });
+    }
+
+    if (updateToSphereBtn) {
+        updateToSphereBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await updateYacvObject('sphere');
+        });
+    }
 
     // Utility function to clear/reset the 3D model viewer
     function clearModel() {
@@ -1184,7 +1208,7 @@ async function autoLoadTestObjects() {
         // Get tab ID from session storage
         const tabId = sessionStorage.getItem('tabId');
 
-        // Call the test endpoint to create objects
+        // Call the test endpoint to create startup objects
         const response = await fetch('/api/test-yacv', {
             method: 'POST',
             headers: {
@@ -1246,5 +1270,104 @@ function openYacvInNewWindow() {
     } else {
         console.error('❌ No YACV server URL available');
         alert('No 3D model is currently loaded. Please wait for the model to load first.');
+    }
+}
+
+// Function to dynamically update the 3D object in the YACV viewer
+async function updateYacvObject(objectType) {
+    console.log(`🎯 Updating 3D viewer with ${objectType}...`);
+
+    // Generate build123d code for different object types
+    let build123dCode = '';
+    let objectName = '';
+
+    switch (objectType) {
+        case 'box':
+            build123dCode = `
+from build123d import *
+
+# Create a box
+box = Box(50, 50, 50)
+clear()
+show(box, names=["cadmodel"])
+print("Box created and displayed!")
+`;
+            objectName = 'cadmodel';
+            break;
+
+        case 'cylinder':
+            build123dCode = `
+from build123d import *
+
+# Create a cylinder
+cylinder = Cylinder(radius=25, height=60)
+clear()
+show(cylinder, names=["cadmodel"])
+print("Cylinder created and displayed!")
+`;
+            objectName = 'cadmodel';
+            break;
+
+        case 'sphere':
+            build123dCode = `
+from build123d import *
+
+# Create a sphere
+sphere = Sphere(radius=30)
+clear()
+show(sphere, names=["cadmodel"])
+print("Sphere created and displayed!")
+`;
+            objectName = 'cadmodel';
+            break;
+
+        default:
+            console.error('❌ Unknown object type:', objectType);
+            return;
+    }
+
+    try {
+        const tabId = sessionStorage.getItem('tabId');
+        const response = await fetch('/api/execute-build123d', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(tabId && { 'X-Tab-ID': tabId })
+            },
+            body: JSON.stringify({
+                code: build123dCode
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.status === 401) {
+            console.error('❌ Authentication required for updating 3D object');
+            alert('Authentication required');
+            return;
+        }
+
+        if (result.success) {
+            console.log(`✅ ${objectType} created successfully:`, result.shown_objects);
+
+            // Give a moment for the backend to process
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Refresh the integrated viewer
+            if (window.yacvViewer && window.yacvViewer.viewerElement) {
+                console.log('🔄 Refreshing integrated YACV viewer...');
+                const timestamp = Date.now();
+                const currentSrc = window.yacvViewer.viewerElement.src;
+                const baseSrc = currentSrc.split('?')[0];
+                window.yacvViewer.viewerElement.src = `${baseSrc}?refresh=${timestamp}`;
+                console.log(`✅ Integrated viewer updated with ${objectType}`);
+            }
+        } else {
+            console.error(`❌ Failed to create ${objectType}:`, result.error);
+            alert(`Failed to create ${objectType}: ${result.error}`);
+        }
+    } catch (error) {
+        console.error(`❌ Error creating ${objectType}:`, error);
+        alert(`Error creating ${objectType}: ${error.message}`);
     }
 }

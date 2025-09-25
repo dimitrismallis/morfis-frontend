@@ -183,6 +183,46 @@ function select(selInfo: SelectionInfo) {
     selected.value.push(selInfo);
   }
   highlight(selInfo);
+  
+  // MORFIS INTEGRATION: Log detailed selection data for backend communication
+  logSelectionData(selInfo, 'select');
+}
+
+function logSelectionData(selInfo: SelectionInfo, action: 'select' | 'deselect') {
+  const boundingBox = selInfo.getBox();
+  const center = boundingBox.getCenter(new Vector3());
+  const size = boundingBox.getSize(new Vector3());
+  
+  const selectionData = {
+    action: action,
+    objectName: selInfo.getObjectName(),
+    selectionType: selInfo.kind, // 'face', 'edge', or 'vertex'
+    uniqueKey: selInfo.getKey(),
+    indices: {
+      start: selInfo.indices[0],
+      end: selInfo.indices[1],
+      count: selInfo.indices[1] - selInfo.indices[0]
+    },
+    boundingBox: {
+      min: { x: boundingBox.min.x, y: boundingBox.min.y, z: boundingBox.min.z },
+      max: { x: boundingBox.max.x, y: boundingBox.max.y, z: boundingBox.max.z },
+      center: { x: center.x, y: center.y, z: center.z },
+      size: { x: size.x, y: size.y, z: size.z }
+    },
+    object: {
+      uuid: selInfo.object.uuid,
+      type: selInfo.object.type,
+      visible: selInfo.object.visible,
+      geometryType: selInfo.object.geometry?.type,
+      vertexCount: selInfo.object.geometry?.getAttribute('position')?.count
+    },
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log('🎯 MORFIS Selection Event:', selectionData);
+  
+  // FUTURE: This is where you would send data to your backend
+  // Example: sendSelectionToBackend(selectionData);
 }
 
 function deselect(selInfo: SelectionInfo, alsoRemove = true) {
@@ -193,6 +233,9 @@ function deselect(selInfo: SelectionInfo, alsoRemove = true) {
     selected.value.splice(toRemove, 1);
   }
   highlightUndo(selInfo);
+  
+  // MORFIS INTEGRATION: Log deselection data
+  logSelectionData(selInfo, 'deselect');
 }
 
 function deselectAll(alsoRemove = true) {
