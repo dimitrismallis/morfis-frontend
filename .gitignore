@@ -1,11 +1,8 @@
-# YACV Build Artifacts and Dependencies
+# YACV Build Artifacts and Dependencies  
 yacv_source_full/
 yacv_custom/node_modules/
 yacv_custom/dist/
-yacv_custom/frontend/assets/
-yacv_custom/frontend/*.js
-yacv_custom/frontend/*.css
-yacv_custom/frontend/*.html
+yacv_custom/frontend/
 yacv_custom/package-lock.json
 
 # Python
