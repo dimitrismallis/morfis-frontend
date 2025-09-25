@@ -1286,10 +1286,21 @@ async function updateYacvObject(objectType) {
             build123dCode = `
 from build123d import *
 
-# Create a box
-box = Box(50, 50, 50)
+cube_size = 20
+pocket_size = 10
+pocket_depth = 6
+
+with BuildPart() as model:
+    Box(cube_size, cube_size, cube_size)
+    # pick the top face
+    top_plane = Plane(model.faces().sort_by(Axis.Z)[-1])
+    with BuildSketch(top_plane):
+        Rectangle(pocket_size, pocket_size)
+    # extrude with explicit keyword
+    extrude(amount=-pocket_depth, mode=Mode.SUBTRACT)
+
 clear()
-show(box, names=["cadmodel"])
+show(model, names=["cadmodel"])
 print("Box created and displayed!")
 `;
             objectName = 'cadmodel';

@@ -198,6 +198,7 @@ function logSelectionData(selInfo: SelectionInfo, action: 'select' | 'deselect')
     objectName: selInfo.getObjectName(),
     selectionType: selInfo.kind, // 'face', 'edge', or 'vertex'
     uniqueKey: selInfo.getKey(),
+    geometryIndex: selInfo.geometryIndex, // NEW: Index in build123d faces()/edges()/vertices() array
     indices: {
       start: selInfo.indices[0],
       end: selInfo.indices[1],
@@ -221,8 +222,10 @@ function logSelectionData(selInfo: SelectionInfo, action: 'select' | 'deselect')
   
   console.log('🎯 MORFIS Selection Event:', selectionData);
   
-  // FUTURE: This is where you would send data to your backend
-  // Example: sendSelectionToBackend(selectionData);
+  // Only send selection data to backend for 'select' actions, not 'deselect'
+  if (action === 'select') {
+    sendSelectionToBackend(selectionData);
+  }
 }
 
 function deselect(selInfo: SelectionInfo, alsoRemove = true) {
@@ -525,6 +528,39 @@ window.addEventListener('keydown', (event) => {
     toggleOpenNextSelection();
   }
 });
+
+// Function to send selection data to backend
+async function sendSelectionToBackend(selectionData: any) {
+  try {
+    if (selectionData.geometryIndex === null || selectionData.geometryIndex === undefined) {
+      console.log('🎯 Skipping backend call - no geometry index available');
+      return;
+    }
+    
+    const response = await fetch('/api/geometry-selection', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(selectionData)
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('🎯 Backend geometry mapping result:', result);
+      
+      // Show a notification or update UI with the build123d geometry information
+      if (result.success) {
+        console.log(`✅ Selected ${result.selection_type} #${result.geometry_index} from ${result.object_name}`);
+        console.log('Properties:', result.properties);
+      }
+    } else {
+      console.error('❌ Failed to send selection to backend:', response.status);
+    }
+  } catch (error) {
+    console.error('❌ Error sending selection to backend:', error);
+  }
+}
 </script>
 
 <template>

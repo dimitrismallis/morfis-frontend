@@ -1097,11 +1097,28 @@ def execute_build123d():
 
         # Clear previous objects for clean state
         yacv.clear()
+        # Also clear our stored objects
+        stored_build123d_objects.clear()
+
+        # Custom show function that stores objects for geometry selection mapping
+        def store_and_show(*args, **kwargs):
+            # Store any build123d objects with their names
+            names = kwargs.get('names', [])
+            if names:
+                for i, obj in enumerate(args):
+                    if i < len(names):
+                        object_name = names[i]
+                        stored_build123d_objects[object_name] = obj
+                        logging.info(
+                            f"🎯 Stored build123d object '{object_name}' for geometry selection")
+
+            # Call the original show method
+            return yacv.show(*args, **kwargs)
 
         # Execute the Build123d code in a safe environment
         exec_globals = {
             "__builtins__": __builtins__,
-            "show": yacv.show,
+            "show": store_and_show,
             "clear": yacv.clear,
             "remove": yacv.remove,
         }
@@ -1460,6 +1477,132 @@ def handle_malformed_yacv_url():
         return yacv_api_object(api_object)
     # Default to YACV root
     return redirect('/yacv/')
+
+
+# Global dictionary to store build123d objects for geometry selection mapping
+stored_build123d_objects = {}
+
+
+@app.route("/api/geometry-selection", methods=["POST"])
+def handle_geometry_selection():
+    """Handle geometry selection data from frontend and map to build123d objects."""
+    try:
+        data = request.json
+        logging.info(f"🎯 Received geometry selection: {data}")
+
+        action = data.get("action")
+        object_name = data.get("objectName", "").replace("?api_object=", "")
+        # "face", "edge", or "vertex"
+        selection_type = data.get("selectionType")
+        geometry_index = data.get("geometryIndex")
+
+        # Skip deselect actions - we only care about selections
+        if action == "deselect":
+            return jsonify({
+                "success": True,
+                "message": "Deselect action ignored"
+            })
+
+        if not object_name or selection_type is None or geometry_index is None:
+            return jsonify({
+                "success": False,
+                "error": f"Missing required fields: objectName='{object_name}', selectionType='{selection_type}', geometryIndex='{geometry_index}'"
+            }), 400
+
+        # Find the stored build123d object
+        if object_name not in stored_build123d_objects:
+            return jsonify({
+                "success": False,
+                "error": f"Object '{object_name}' not found in stored objects. Available: {list(stored_build123d_objects.keys())}"
+            }), 404
+
+        build123d_obj = stored_build123d_objects[object_name]
+
+        # Map the selection to the actual build123d geometry
+        try:
+            if selection_type == "face":
+                if hasattr(build123d_obj, 'faces'):
+                    faces_list = build123d_obj.faces()
+                    if 0 <= geometry_index < len(faces_list):
+                        selected_face = faces_list[geometry_index]
+                        return jsonify({
+                            "success": True,
+                            "selection_type": "face",
+                            "geometry_index": geometry_index,
+                            "object_name": object_name,
+                            "properties": {
+                                "area": float(selected_face.area),
+                                "center": {
+                                    "x": float(selected_face.center().X),
+                                    "y": float(selected_face.center().Y),
+                                    "z": float(selected_face.center().Z)
+                                },
+                                "normal": {
+                                    "x": float(selected_face.normal_at().X),
+                                    "y": float(selected_face.normal_at().Y),
+                                    "z": float(selected_face.normal_at().Z)
+                                }
+                            }
+                        })
+
+            elif selection_type == "edge":
+                if hasattr(build123d_obj, 'edges'):
+                    edges_list = build123d_obj.edges()
+                    if 0 <= geometry_index < len(edges_list):
+                        selected_edge = edges_list[geometry_index]
+                        return jsonify({
+                            "success": True,
+                            "selection_type": "edge",
+                            "geometry_index": geometry_index,
+                            "object_name": object_name,
+                            "properties": {
+                                "length": float(selected_edge.length),
+                                "start_point": {
+                                    "x": float(selected_edge.start_point().X),
+                                    "y": float(selected_edge.start_point().Y),
+                                    "z": float(selected_edge.start_point().Z)
+                                },
+                                "end_point": {
+                                    "x": float(selected_edge.end_point().X),
+                                    "y": float(selected_edge.end_point().Y),
+                                    "z": float(selected_edge.end_point().Z)
+                                }
+                            }
+                        })
+
+            elif selection_type == "vertex":
+                if hasattr(build123d_obj, 'vertices'):
+                    vertices_list = build123d_obj.vertices()
+                    if 0 <= geometry_index < len(vertices_list):
+                        selected_vertex = vertices_list[geometry_index]
+                        return jsonify({
+                            "success": True,
+                            "selection_type": "vertex",
+                            "geometry_index": geometry_index,
+                            "object_name": object_name,
+                            "properties": {
+                                "position": {
+                                    "x": float(selected_vertex.X),
+                                    "y": float(selected_vertex.Y),
+                                    "z": float(selected_vertex.Z)
+                                }
+                            }
+                        })
+
+            return jsonify({
+                "success": False,
+                "error": f"Invalid geometry index {geometry_index} for {selection_type}"
+            }), 400
+
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": f"Error accessing build123d geometry: {str(e)}"
+            }), 500
+
+    except Exception as e:
+        logging.error(f"Error handling geometry selection: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/yacv/<path:filename>")
