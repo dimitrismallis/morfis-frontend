@@ -1,0 +1,155 @@
+INFO:root:Database tables created successfully
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.18.0.3:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+INFO:werkzeug: * Detected change in '/workspace/test_simple.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:05] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:05] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:06] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:07] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:07] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:07] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+ERROR:root:Build123d script failed:   File "/tmp/yacv_session_97db81fd__14mkc84/build123d_script.py", line 10
+    from build123d import *
+    ^^^^
+IndentationError: expected an indented block after 'try' statement on line 7
+
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:18] "[35m[1mPOST /api/execute-build123d HTTP/1.1[0m" 500 -
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:43] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:43] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:43] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:44] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:44] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:45] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:45] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:45] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:45] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+/workspace/app.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  session["login_time"] = datetime.utcnow().isoformat()
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:46:51] "POST /login HTTP/1.1" 200 -
+INFO:root:Created new browser session: 7f303f1f-a51d-4d73-8297-93589646811c
+ERROR:root:Build123d script failed:   File "/tmp/yacv_session_7f303f1f_ji7qt0x6/build123d_script.py", line 9
+    print("Hello from Build123d script")
+    ^^^^^
+IndentationError: expected an indented block after 'try' statement on line 7
+
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:47:00] "[35m[1mPOST /api/execute-build123d HTTP/1.1[0m" 500 -
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:root:Created new browser session: 250d4aae-f07d-4e0a-ac0d-fdb92437c85c
+INFO:root:Build123d script started successfully for session 250d4aae-f07d-4e0a-ac0d-fdb92437c85c
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:47:32] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:root:Created new browser session: 713c346c-634e-4f20-b86d-b8a8d1e3f3a1
+INFO:root:Build123d script started successfully for session 713c346c-634e-4f20-b86d-b8a8d1e3f3a1
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:47:44] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:47:52] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:47:52] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:47:52] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:48:05] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:48:05] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:48:05] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+INFO:root:Build123d script started successfully for session 97db81fd-7288-48fe-b58b-ce411e8f9e67
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:48:09] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:48:14] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:49:04] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:49:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:49:04] "[36mGET /static/js/yacv_build123d_viewer.js HTTP/1.1[0m" 304 -
+INFO:root:Build123d script started successfully for session 97db81fd-7288-48fe-b58b-ce411e8f9e67
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:49:09] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:root:Created new browser session: df0e5d4c-3ab8-430b-be67-33133c9f40b4
+INFO:root:Copied YACV frontend files to /tmp/yacv_session_df0e5d4c_vlgizvtk/frontend
+INFO:root:Build123d script started successfully for session df0e5d4c-3ab8-430b-be67-33133c9f40b4
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:50:07] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:root:Created new browser session: ea0cb6d9-985e-49df-a94e-e71bbcd37b38
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:root:Created new browser session: 74db1349-34a6-45ce-818c-beaa9c360161
+INFO:root:Copied YACV frontend files to /tmp/yacv_session_74db1349_fkxmz5og/frontend
+INFO:root:Build123d script started successfully for session 74db1349-34a6-45ce-818c-beaa9c360161
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:50:57] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/save_design.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/integrated_viewer.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/trajectory.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/color_selector.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/download_handler.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/waitlist.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/mobile_input.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:09] "[36mGET /static/js/step_preview.js HTTP/1.1[0m" 304 -
+INFO:root:Created new tab session: bcf97c38-7f9c-4940-b296-0180a1f24782 for tab: tab_ox5v3s432_1758729129856
+/workspace/app.py:236: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  session["login_time"] = datetime.utcnow().isoformat()
+DEBUG:root:Database not available for session activity update: The current Flask app is not registered with this 'SQLAlchemy' instance. Did you forget to call 'init_app', or did you create multiple 'SQLAlchemy' instances?
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): morfis.ngrok.app:443
+DEBUG:urllib3.connectionpool:https://morfis.ngrok.app:443 "GET /init?session_id=bcf97c38-7f9c-4940-b296-0180a1f24782 HTTP/1.1" 200 133
+DEBUG:root:Backend init response: {'design_types': ['Empty Design'], 'message': 'This is an empty design. Please add components to the design.', 'data': None, 'format': None}
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:10] "GET /api/config HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:10] "[36mGET /static/js/libs/o3dv.min.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:10] "[36mGET /static/images/logo.png HTTP/1.1[0m" 304 -
+INFO:werkzeug: * Detected change in '/workspace/app.py', reloading
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 227-194-120
+/workspace/app.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if datetime.utcnow() - login_dt > timedelta(hours=1):
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:29] "GET /yacv-demo HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:29] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:29] "GET /static/js/yacv_build123d_viewer.js HTTP/1.1" 200 -
+INFO:root:Copied YACV frontend files to /tmp/yacv_session_97db81fd_ag5b0op6/frontend
+INFO:root:Build123d script started successfully for session 97db81fd-7288-48fe-b58b-ce411e8f9e67
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:33] "POST /api/execute-build123d HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:37] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [24/Sep/2025 15:52:37] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -

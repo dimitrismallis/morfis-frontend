@@ -10,7 +10,7 @@ requests>=2.32.3
 
 # Build123d and CAD dependencies
 build123d==0.9.1
-yacv-server==0.10.10
+# yacv-server==0.10.10  # Replaced with custom embedded version
 
 # Core dependencies for Build123d
 numpy==2.3.3

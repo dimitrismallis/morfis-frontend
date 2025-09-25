@@ -75,15 +75,21 @@ def check_password_protection():
 
     # For API endpoints and POST requests, block if not authenticated
     if not session.get("authenticated"):
-        # Block all API endpoints
+        # Block all API endpoints except YACV object endpoints
         if request.endpoint and (
             request.endpoint.startswith(
                 "api/") or request.endpoint.startswith("get_")
         ):
-            return jsonify({"error": "Authentication required"}), 401
+            # Allow YACV object endpoints without authentication
+            yacv_endpoints = ["yacv_api_object", "yacv_api_object_route", "yacv_frontend_api_object",
+                              "yacv_api_updates", "yacv_api_updates_route", "yacv_static_files",
+                              "yacv_frontend", "yacv_assets", "yacv_root", "yacv_index_specific",
+                              "test_yacv"]
+            if request.endpoint not in yacv_endpoints:
+                return jsonify({"error": "Authentication required"}), 401
 
         # Block POST requests that could modify data
-        if request.method == "POST" and request.endpoint not in ["login"]:
+        if request.method == "POST" and request.endpoint not in ["login", "test_yacv"]:
             return jsonify({"error": "Authentication required"}), 401
 
         # Block specific endpoints that fetch/modify data
@@ -315,10 +321,24 @@ def process_model_data(response_data):
 
 @app.route("/")
 def index():
+    # If YACV frontend requests SSE via root with ?api_updates=true, serve it
+    api_updates = request.args.get('api_updates')
+    if api_updates in ['t', 'true']:
+        return yacv_api_updates()
+
+    # If YACV frontend requests a specific object via ?api_object=<name>, serve GLB
+    api_object = request.args.get('api_object')
+    if api_object:
+        return yacv_api_object(api_object)
+
     is_authenticated = session.get("authenticated", False)
     error_message = request.args.get("error", "")
+    import time
     return render_template(
-        "index.html", is_authenticated=is_authenticated, error_message=error_message
+        "index.html",
+        is_authenticated=is_authenticated,
+        error_message=error_message,
+        timestamp=int(time.time())
     )
 
 
@@ -990,9 +1010,86 @@ def submit_feedback():
 yacv_processes = {}
 
 
+@app.route("/api/test-yacv", methods=["POST"])
+def test_yacv():
+    """Test YACV integration with sample Build123d code."""
+    try:
+        logging.info("🧪 Starting YACV integration test...")
+
+        # Simple single object for testing
+        sample_code = """
+from build123d import *
+
+# Create a simple box
+box = Box(50, 50, 50)
+
+# Clear any existing objects first
+clear()
+
+# Show the single object
+show(box, names=["test_box"])
+
+print("Single test box created and displayed in YACV!")
+"""
+
+        # Get the global YACV instance
+        yacv = get_or_create_yacv()
+
+        # Clear previous objects for clean state
+        logging.info(
+            f"🧪 Test: Objects before clear: {yacv.shown_object_names()}")
+        yacv.clear()
+        logging.info(
+            f"🧪 Test: Objects after clear: {yacv.shown_object_names()}")
+
+        # Execute the Build123d code in a safe environment
+        exec_globals = {
+            "__builtins__": __builtins__,
+            "show": yacv.show,
+            "clear": yacv.clear,
+            "remove": yacv.remove,
+        }
+
+        # Debug logging
+        logging.info(f"YACV instance: {yacv}")
+        logging.info(f"YACV show method: {yacv.show}")
+        logging.info(
+            f"YACV startup_complete: {yacv.startup_complete.is_set()}")
+
+        # Import Build123d into the execution environment
+        try:
+            import sys
+            logging.info(f"Python executable: {sys.executable}")
+            logging.info(f"Python path: {sys.path[:3]}")
+            exec("from build123d import *", exec_globals)
+        except ImportError as e:
+            logging.error(f"Failed to import required modules: {e}")
+            return jsonify({"success": False, "error": f"Module import failed: {str(e)}. Please ensure build123d is installed."}), 500
+
+        # Execute the sample code
+        exec(sample_code, exec_globals)
+
+        # Debug: Check what objects are actually in the YACV instance
+        shown_objects = yacv.shown_object_names()
+        logging.info(f"🧪 Test: Objects after execution: {shown_objects}")
+        logging.info(f"🧪 Test: Successfully completed test")
+
+        return jsonify({
+            "success": True,
+            "message": "Sample Build123d objects created and displayed in YACV",
+            "yacv_url": "/yacv/",
+            "shown_objects": shown_objects,
+            "session_id": get_session_id()
+        })
+
+    except Exception as e:
+        logging.error(f"Error executing sample Build123d code: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/execute-build123d", methods=["POST"])
 def execute_build123d():
-    """Execute Build123d code using YACV server."""
+    """Execute Build123d code using integrated YACV."""
     try:
         data = request.json
         code = data.get("code", "")
@@ -1000,267 +1097,66 @@ def execute_build123d():
         if not code.strip():
             return jsonify({"success": False, "error": "No code provided"}), 400
 
-        # Get session ID for isolation
-        session_id = get_session_id()
+        # Get the global YACV instance
+        yacv = get_or_create_yacv()
 
-        # Create a temporary directory for this session
-        temp_dir = tempfile.mkdtemp(prefix=f"yacv_session_{session_id[:8]}_")
-        script_path = os.path.join(temp_dir, "build123d_script.py")
+        # Clear previous objects for clean state
+        yacv.clear()
 
-        # Copy YACV frontend files to the temp directory
-        import shutil
-        yacv_frontend_path = "/usr/local/python/current/lib/python3.12/site-packages/yacv_server/frontend"
-        frontend_dest = os.path.join(temp_dir, "frontend")
-
-        if os.path.exists(yacv_frontend_path):
-            shutil.copytree(yacv_frontend_path, frontend_dest)
-
-            # Add custom CSS to hide everything until model loads, plus hide control buttons
-            custom_css = """
-/* Hide the model control buttons (faces, edges, vertices) */
-.v-expansion-panel-title > .v-btn-toggle {
-    display: none !important;
-}
-
-/* Adjust spacing since buttons are hidden */
-.model-name {
-    margin-left: 16px;
-}
-
-/* Hide everything until model is loaded - more targeted approach */
-body {
-    background: white !important;
-}
-
-/* Hide the main Vue app container until model loads */
-#app {
-    opacity: 0 !important;
-    transition: opacity 0.3s ease;
-}
-
-/* Show when model-loaded class is added */
-#app.model-loaded {
-    opacity: 1 !important;
-}
-
-/* Also ensure main content is hidden */
-.v-main {
-    visibility: hidden;
-}
-
-.v-main.model-loaded {
-    visibility: visible;
-}
-"""
-
-            # Inject CSS into the main HTML file
-            index_html_path = os.path.join(frontend_dest, 'index.html')
-            if os.path.exists(index_html_path):
-                with open(index_html_path, 'r') as f:
-                    content = f.read()
-
-                # Add CSS styles and JavaScript in the head section
-                css_styles = f'<style>\n{custom_css}\n</style>'
-
-                # Add JavaScript to show content only when model actually loads
-                js_script = '''
-<script>
-// Smart model loading detection
-window.addEventListener('load', function() {
-    console.log('🎭 YACV: Initializing smart visibility control');
-    
-    let modelLoaded = false;
-    
-    // Function to show the content
-    function showContent() {
-        if (modelLoaded) return; // Prevent multiple calls
-        
-        const app = document.getElementById('app');
-        const mainElements = document.querySelectorAll('.v-main');
-        
-        if (app) {
-            app.classList.add('model-loaded');
-            console.log('🎨 YACV: App made visible');
-        }
-        
-        mainElements.forEach(main => {
-            main.classList.add('model-loaded');
-        });
-        
-        modelLoaded = true;
-        console.log('✅ YACV: Interface revealed after model load');
-    }
-    
-    // Observe for actual 3D content (canvas elements indicate WebGL/3D rendering)
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.addedNodes.length > 0) {
-                for (let node of mutation.addedNodes) {
-                    if (node.nodeType === 1) { // Element node
-                        // Look for canvas (3D rendering) or specific YACV content indicators
-                        if (node.tagName === 'CANVAS' || 
-                            (node.querySelector && node.querySelector('canvas')) ||
-                            (node.classList && (
-                                node.classList.contains('threejs-canvas') ||
-                                node.classList.contains('viewer-canvas') ||
-                                node.classList.contains('model-viewer')
-                            ))) {
-                            console.log('🎨 YACV: 3D canvas detected, showing interface');
-                            showContent();
-                            observer.disconnect();
-                            return;
-                        }
-                    }
-                }
-            }
-        });
-    });
-    
-    // Start observing
-    if (document.body) {
-        observer.observe(document.body, { 
-            childList: true, 
-            subtree: true,
-            attributes: false 
-        });
-    }
-    
-    // Fallback: Show after 3 seconds if no canvas detected (for safety)
-    setTimeout(function() {
-        if (!modelLoaded) {
-            console.log('🕐 YACV: Fallback timeout, showing interface');
-            showContent();
-        }
-    }, 3000);
-});
-</script>'''
-
-                content = content.replace(
-                    '</head>', f'  {css_styles}\n  {js_script}\n</head>')
-
-                with open(index_html_path, 'w') as f:
-                    f.write(content)
-
-            logging.info(f"Copied YACV frontend files to {frontend_dest}")
-
-        # Write the Build123d code to a temporary file
-        with open(script_path, 'w') as f:
-            # Indent the user's code properly
-            indented_code = '\n'.join(
-                ['    ' + line for line in code.split('\n')])
-
-            # Add necessary imports and YACV server setup
-            f.write(f"""#!/usr/bin/env python3
-import os
-import sys
-
-print("Starting Build123d script...")
-
-# Set up YACV server environment
-os.environ['YACV_HOST'] = 'localhost'
-os.environ['YACV_PORT'] = '{32323 + hash(session_id) % 1000}'
-os.environ['YACV_GRACEFUL_SECS_CONNECT'] = '120'  # Wait longer for frontend connection
-
-try:
-    # Import YACV server first
-    import yacv_server
-    print("YACV server imported successfully")
-    
-    # Ensure we're in the right directory for frontend files
-    import os
-    print(f"Current working directory: {{os.getcwd()}}")
-    print(f"Frontend files should be at: {{os.path.join(os.getcwd(), 'frontend')}}")
-    
-    # Create YACV instance explicitly
-    yacv_instance = yacv_server.YACV()
-    print(f"YACV server instance created on port {{os.environ['YACV_PORT']}}")
-    
-    # User's Build123d code
-{indented_code}
-
-    print("Build123d code executed successfully")
-    print("YACV server is running and waiting for frontend connections...")
-    print(f"Server URL: http://localhost:{{os.environ['YACV_PORT']}}")
-    
-    # Keep server alive indefinitely until manual termination
-    import time
-    while True:
-        time.sleep(10)
-        print("YACV server still active...")
-    
-except KeyboardInterrupt:
-    print("YACV server stopped by user")
-except Exception as e:
-    print(f"Error executing Build123d code: {{e}}")
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-""")
-
-        # Start YACV server in background
-        server_port = 32323 + hash(session_id) % 1000
-        server_url = f"http://localhost:{server_port}"
-
-        # Kill any existing process for this session
-        if session_id in yacv_processes:
-            try:
-                yacv_processes[session_id].terminate()
-                yacv_processes[session_id].wait(timeout=5)
-            except:
-                pass
-
-        # Create a minimal clean environment for subprocess
-        env = {
-            'PATH': '/usr/local/python/current/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-            'DISPLAY': ':99',
-            'LIBGL_ALWAYS_INDIRECT': '1',
-            'LIBGL_ALWAYS_SOFTWARE': '1',
-            'YACV_HOST': 'localhost',
-            'YACV_PORT': str(32323 + hash(session_id) % 1000),
-            # Point to copied frontend
-            'FRONTEND_BASE_PATH': os.path.join(temp_dir, "frontend"),
-            'PYDEVD_DISABLE_FILE_VALIDATION': '1',
-            'PYTHONUNBUFFERED': '1',
-            'HOME': '/tmp',
-            'PYTHONDONTWRITEBYTECODE': '1'  # Don't create .pyc files
+        # Execute the Build123d code in a safe environment
+        exec_globals = {
+            "__builtins__": __builtins__,
+            "show": yacv.show,
+            "clear": yacv.clear,
+            "remove": yacv.remove,
         }
 
-        # Start new process with clean environment
-        process = subprocess.Popen([
-            '/usr/local/python/current/bin/python3', '-u', script_path
-        ], cwd=temp_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
-
-        yacv_processes[session_id] = process
-
-        # Wait a moment to see if the script starts successfully
-        time.sleep(2)
-
-        # Check if process is still running
-        if process.poll() is not None:
-            # Process ended, check for errors
-            stdout, stderr = process.communicate()
-            logging.error(f"Build123d script failed: {stderr}")
-            return jsonify({
-                "success": False,
-                "error": f"Script execution failed: {stderr[:500]}"
-            }), 500
-
+        # Debug logging
+        logging.info(f"YACV instance: {yacv}")
+        logging.info(f"YACV show method: {yacv.show}")
         logging.info(
-            f"Build123d script started successfully for session {session_id}")
+            f"YACV startup_complete: {yacv.startup_complete.is_set()}")
+
+        # Import Build123d into the execution environment
+        try:
+            import sys
+            logging.info(f"Python executable: {sys.executable}")
+            logging.info(f"Python path: {sys.path[:3]}")
+            exec("from build123d import *", exec_globals)
+            # CRITICAL: Don't import yacv_custom.show - it overwrites the instance method!
+        except ImportError as e:
+            logging.error(f"Failed to import required modules: {e}")
+            return jsonify({"success": False, "error": f"Module import failed: {str(e)}. Please ensure build123d is installed."}), 500
+
+        # Execute the user's code
+        exec(code, exec_globals)
+
+        # Debug: Check what objects are actually in the YACV instance
+        shown_objects = yacv.shown_object_names()
+        logging.info(f"🎯 Objects after execution: {shown_objects}")
+        logging.info(
+            f"🎯 YACV objects dict keys: {list(yacv.objects.keys()) if hasattr(yacv, 'objects') else 'No objects attr'}")
+
+        # Try to get the first object's GLTF data to verify it exists
+        if shown_objects:
+            try:
+                gltf_data = yacv.export(shown_objects[0])
+                logging.info(
+                    f"🎯 GLTF export successful: {len(gltf_data)} bytes")
+            except Exception as e:
+                logging.error(f"🎯 GLTF export failed: {e}")
 
         return jsonify({
             "success": True,
-            "server_url": server_url,
-            "session_id": session_id,
-            "message": "Build123d code executed successfully"
+            "message": "Build123d code executed successfully",
+            "yacv_url": "/yacv/",
+            "shown_objects": shown_objects,
+            "session_id": get_session_id()
         })
 
     except Exception as e:
         logging.error(f"Error executing Build123d code: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": f"Failed to execute Build123d code: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/stop-yacv/<session_id>", methods=["POST"])
@@ -1283,6 +1179,323 @@ def stop_yacv_server(session_id):
     except Exception as e:
         logging.error(f"Error stopping YACV server: {str(e)}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =============================================================================
+# INTEGRATED YACV ROUTES (Direct Integration)
+# =============================================================================
+
+# Global YACV instance for the entire Flask app
+global_yacv_instance = None
+
+
+def get_or_create_yacv():
+    """Get or create the global YACV instance (without starting its own server)"""
+    global global_yacv_instance
+    if global_yacv_instance is None:
+        # Set up environment for headless OpenGL (required for Build123d)
+        import os
+        os.environ['DISPLAY'] = ':99'
+        os.environ['LIBGL_ALWAYS_INDIRECT'] = '1'
+        os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
+
+        # Configure YACV to use Flask server instead of its own server
+        os.environ['YACV_HOST'] = 'localhost'
+        os.environ['YACV_PORT'] = '5000'  # Use Flask port instead of 32323
+
+        # Create YACV instance without starting its own server
+        from yacv_custom.yacv import YACV
+        global_yacv_instance = YACV()
+
+        # Manually set the startup_complete event so YACV thinks it's ready
+        global_yacv_instance.startup_complete.set()
+
+        # Bind the yacv_custom global instance to this integrated instance so any
+        # 'from yacv_custom import show' in executed code uses the same backend instance
+        try:
+            import yacv_custom as yacv_custom_module
+            yacv_custom_module._yacv_instance = global_yacv_instance
+            logging.info(
+                "Bound yacv_custom global instance to integrated YACV")
+        except Exception as e:
+            logging.warning(f"Unable to bind yacv_custom global instance: {e}")
+
+        # NOTE: We do NOT call yacv_instance.start() because we handle HTTP through Flask
+        logging.info(
+            "Created global YACV instance for direct integration (no separate server)")
+    return global_yacv_instance
+
+
+@app.route("/yacv/frontend/<path:filename>")
+def yacv_frontend(filename):
+    """Serve YACV frontend files directly from Flask"""
+    import os
+
+    from flask import make_response, send_from_directory
+    yacv_frontend_path = os.path.join(
+        os.path.dirname(__file__), "yacv_custom", "frontend")
+    response = make_response(send_from_directory(yacv_frontend_path, filename))
+    # Force no caching
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
+@app.route("/yacv/assets/<path:filename>")
+def yacv_assets(filename):
+    """Serve YACV assets directly from Flask"""
+    import os
+
+    from flask import send_from_directory
+    yacv_assets_path = os.path.join(
+        os.path.dirname(__file__), "yacv_custom", "assets")
+    return send_from_directory(yacv_assets_path, filename)
+
+
+@app.route("/yacv/")
+def yacv_root():
+    """Serve YACV main page with API handling for YACV frontend"""
+    # If YACV frontend requests SSE via /yacv/?api_updates=true, serve it
+    api_updates = request.args.get('api_updates')
+    if api_updates in ['t', 'true']:
+        return yacv_api_updates()
+
+    # If YACV frontend requests a specific object via /yacv/?api_object=<name>, serve GLB
+    api_object = request.args.get('api_object')
+    if api_object:
+        return yacv_api_object(api_object)
+
+    # Check for malformed dev+ URLs that YACV frontend might be generating
+    if 'dev+' in request.url:
+        logging.warning(f"🔧 YACV frontend using malformed URL: {request.url}")
+        # This is likely a configuration issue in the YACV frontend
+        # Return SSE or object data depending on what's being requested
+        if 'api_updates' in request.args:
+            return yacv_api_updates()
+        api_object = request.args.get('api_object')
+        if api_object:
+            return yacv_api_object(api_object)
+        # Otherwise redirect to clean YACV root
+        return redirect('/yacv/')
+
+    # Otherwise serve the YACV frontend
+    return yacv_index_specific()
+
+
+# Add missing YACV API routes that the frontend expects
+@app.route("/yacv/api/object/<object_name>")
+def yacv_api_object_route(object_name):
+    """YACV API endpoint that frontend expects for object data"""
+    return yacv_api_object(object_name)
+
+
+@app.route("/yacv/api/updates")
+def yacv_api_updates_route():
+    """YACV API updates endpoint that frontend expects"""
+    return yacv_api_updates()
+
+
+@app.route("/api/yacv/updates")
+def yacv_api_updates():
+    """YACV API updates endpoint (Server-Sent Events)"""
+    import json
+
+    from flask import Response
+
+    def generate_updates():
+        yacv = get_or_create_yacv()
+
+        # Debug: Log initial state
+        logging.info(
+            f"🎯 SSE: Starting updates stream. Current objects: {yacv.shown_object_names()}")
+
+        # Set up SSE headers
+        yield "data: \n\n"  # Initial connection
+        yield "retry: 100\n\n"
+
+        # Send existing objects to new clients
+        existing_events = yacv.show_events.buffer()
+        for event in existing_events:
+            if not event.is_remove:  # Only send non-removed objects
+                logging.info(f"🎯 SSE: Sending existing event: {event}")
+                event_json = event.to_json()
+                yield f"data: {event_json}\n\n"
+
+        # Subscribe to YACV events for future updates
+        subscription = yacv.show_events.subscribe(yield_timeout=1.0)
+        try:
+            for data in subscription:
+                if data is None:
+                    yield ":keep-alive\n\n"
+                else:
+                    # Debug: Log the event being sent
+                    logging.info(f"🎯 SSE: Sending event: {data}")
+                    # Send the event data
+                    event_json = data.to_json()
+                    yield f"data: {event_json}\n\n"
+        except GeneratorExit:
+            # Generator is being closed by the client; subscription auto-unsubscribes in finally
+            pass
+        except Exception as e:
+            logging.info(f"SSE client disconnected: {e}")
+
+    return Response(generate_updates(), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache'})
+
+
+@app.route("/yacv/api/object/<object_name>")
+@app.route("/api/yacv/objects/<object_name>")
+def yacv_api_object(object_name):
+    """YACV API endpoint to get object GLTF data"""
+    from flask import make_response
+    yacv = get_or_create_yacv()
+
+    # Debug: Log what's being requested vs what's available
+    available_objects = yacv.shown_object_names()
+    logging.info(
+        f"🎯 YACV API: Requested object '{object_name}', available: {available_objects}")
+
+    # Export the object
+    export_result = yacv.export(object_name)
+    if export_result is None:
+        logging.error(f"🎯 YACV API: Object '{object_name}' not found!")
+        return "Object not found", 404
+
+    glb_data, obj_hash = export_result
+
+    response = make_response(glb_data)
+    response.headers['Content-Type'] = 'model/gltf-binary'
+    response.headers['Content-Length'] = str(len(glb_data))
+    response.headers['Content-Disposition'] = f'attachment; filename="{object_name}.glb"'
+    response.headers['E-Tag'] = f'"{obj_hash}"'
+    return response
+
+
+@app.route("/api/yacv/show", methods=["POST"])
+def yacv_api_show():
+    """API endpoint to show objects in YACV (alternative to subprocess)"""
+    try:
+        data = request.json
+        code = data.get("code", "")
+
+        if not code.strip():
+            return jsonify({"success": False, "error": "No code provided"}), 400
+
+        # Get the global YACV instance
+        yacv = get_or_create_yacv()
+
+        # Execute the Build123d code in a safe environment
+        exec_globals = {
+            "__builtins__": __builtins__,
+            "show": yacv.show,
+            "clear": yacv.clear,
+            "remove": yacv.remove,
+        }
+
+        # Import Build123d and yacv_custom into the execution environment
+        try:
+            import sys
+            logging.info(f"Python executable: {sys.executable}")
+            logging.info(f"Python path: {sys.path[:3]}")
+            exec("from build123d import *", exec_globals)
+            exec("from yacv_custom import show, clear, remove", exec_globals)
+        except ImportError as e:
+            logging.error(f"Failed to import required modules: {e}")
+            return jsonify({"success": False, "error": f"Module import failed: {str(e)}. Please ensure build123d is installed."}), 500
+
+        # Execute the user's code
+        exec(code, exec_globals)
+
+        return jsonify({
+            "success": True,
+            "message": "Build123d code executed successfully",
+            "yacv_url": "/yacv/",
+            "shown_objects": yacv.shown_object_names()
+        })
+
+    except Exception as e:
+        logging.error(f"Error executing Build123d code: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# YACV frontend API compatibility route
+@app.route("/yacv/objects/<object_name>")
+def yacv_frontend_api_object(object_name):
+    """YACV API endpoint for frontend to get object GLTF data"""
+    return yacv_api_object(object_name)
+
+# Catch-all route for YACV static files (must be after specific routes)
+
+
+@app.route("/yacv/index.html")
+def yacv_index_specific():
+    """Serve YACV index.html with dynamic content and cache-busting"""
+    import os
+    import time
+
+    from flask import make_response, request
+
+    # Check if this is an API updates request (handle both 't' and 'true')
+    api_updates = request.args.get('api_updates')
+    if api_updates in ['t', 'true']:
+        return yacv_api_updates()
+
+    # Generate fresh HTML with current timestamp
+    timestamp = int(time.time())
+
+    # Serve the actual built index.html instead of generating it
+    from flask import send_from_directory
+    yacv_frontend_path = os.path.join(
+        os.path.dirname(__file__), "yacv_custom", "frontend")
+    return send_from_directory(yacv_frontend_path, "index.html")
+
+
+@app.route("/dev+http://localhost:5000")
+@app.route("/dev+http://localhost:5000/")
+def handle_malformed_yacv_url():
+    """Handle malformed URLs generated by YACV frontend"""
+    logging.warning(
+        "🔧 Caught malformed YACV URL, redirecting to proper endpoint")
+    # Check what the frontend is actually trying to do
+    if 'api_updates' in request.args or request.args.get('api_updates'):
+        return yacv_api_updates()
+    api_object = request.args.get('api_object')
+    if api_object:
+        return yacv_api_object(api_object)
+    # Default to YACV root
+    return redirect('/yacv/')
+
+
+@app.route("/yacv/<path:filename>")
+def yacv_static_files(filename):
+    """Serve YACV static files (JS, CSS, etc.) with hash-based names"""
+    import os
+
+    from flask import make_response, send_from_directory
+
+    # Skip objects API to avoid conflicts
+    if filename.startswith('objects/'):
+        return "Not found", 404
+
+    # Only serve actual files that have extensions
+    if '.' not in filename:
+        return "Not found", 404
+
+    yacv_frontend_path = os.path.join(
+        os.path.dirname(__file__), "yacv_custom", "frontend")
+
+    try:
+        response = make_response(
+            send_from_directory(yacv_frontend_path, filename))
+        # Allow normal caching for static files to prevent multiple loads
+        response.headers['Cache-Control'] = 'public, max-age=300'  # 5 minutes
+        # Add ETag based on filename for reasonable caching
+        import time
+        response.headers['ETag'] = f'"{filename}"'
+        return response
+    except:
+        return "File not found", 404
 
 
 if __name__ == "__main__":

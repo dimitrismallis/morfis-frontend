@@ -7,7 +7,7 @@ class YACVBuild123dViewer {
         this.currentCode = null;
         this.viewerElement = null;
         this.pollInterval = null;
-        this.serverUrl = 'http://localhost:32323'; // Default YACV server port
+        this.serverUrl = window.location.origin + '/yacv/'; // Use Flask integrated YACV
     }
 
     async init(container) {
@@ -109,16 +109,14 @@ class YACVBuild123dViewer {
             const result = await response.json();
 
             if (result.success) {
-                // Store the server URL globally
-                this.lastServerUrl = result.server_url;
+                // Use the integrated YACV URL 
+                this.lastServerUrl = result.yacv_url || '/yacv/';
 
-                // Server started, now connect to YACV viewer
-                setTimeout(() => {
-                    this.connectToYACVServer(result.server_url || this.serverUrl);
-                }, 1000); // Give server time to start
+                // Connect to integrated YACV viewer immediately (no delay needed)
+                this.connectToYACVServer(this.lastServerUrl);
 
-                this.updateStatus('Connected to YACV server', 'success');
-                return result; // Return result so caller can access server_url
+                this.updateStatus(`Connected to integrated YACV - Objects: ${result.shown_objects?.length || 0}`, 'success');
+                return result;
             } else {
                 throw new Error(result.error || 'Failed to execute Build123d code');
             }
@@ -131,7 +129,7 @@ class YACVBuild123dViewer {
     }
 
     connectToYACVServer(serverUrl) {
-        console.log('🔗 Connecting to YACV server at:', serverUrl);
+        console.log('🔗 [v3.0-NUCLEAR] Connecting to YACV server at:', serverUrl);
 
         // Store the server URL for later use
         this.lastServerUrl = serverUrl;
@@ -153,11 +151,42 @@ class YACVBuild123dViewer {
             }
         };
 
-        // Update iframe src to point to YACV viewer (add /index.html)
-        this.viewerElement.src = serverUrl + '/index.html';
+        // Force complete cache clear by recreating iframe element
+        const oldIframe = this.viewerElement;
+        const newIframe = document.createElement('iframe');
+        newIframe.id = oldIframe.id;
+        newIframe.className = oldIframe.className;
+        newIframe.style.cssText = oldIframe.style.cssText;
+
+        // Ultimate cache bypass: unique timestamp + random ID
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(7);
+        // Use minimal params to avoid loading dev plugins in YACV
+        newIframe.src = serverUrl + 'index.html?t=' + timestamp + '&r=' + randomId + '&nocache=1';
+
+        // Replace old iframe with new one
+        oldIframe.parentNode.replaceChild(newIframe, oldIframe);
+        this.viewerElement = newIframe;
+
+        // Add event handlers to new iframe
+        this.viewerElement.onload = () => {
+            console.log('✅ YACV iframe loaded successfully');
+            this.updateStatus('YACV viewer loaded successfully', 'success');
+        };
+
+        this.viewerElement.onerror = (error) => {
+            console.error('❌ YACV iframe failed to load:', error);
+            this.updateStatus('Iframe failed - use "Open in New Window" button', 'error');
+
+            // Show the test connection button
+            const testBtn = document.getElementById('testConnectionBtn');
+            if (testBtn) {
+                testBtn.style.display = 'inline-block';
+            }
+        };
 
         // Set initial status
-        this.updateStatus('Loading YACV viewer...', 'processing');
+        this.updateStatus('Loading fresh YACV viewer...', 'processing');
 
         // Set a timeout to show fallback option if iframe doesn't load
         setTimeout(() => {
@@ -261,7 +290,7 @@ with BuildPart() as example:
 example.color = (0.2, 0.6, 0.8, 1.0)  # Blue color (RGBA)
 
 # Show the part in YACV viewer
-from yacv_server import show
+# 'show' function is already available in the execution environment
 show(example)
 `,
             simple_bracket: `
@@ -284,7 +313,7 @@ with BuildPart() as bracket:
 bracket.color = (0.8, 0.4, 0.2, 1.0)  # Orange color
 
 # Show the bracket
-from yacv_server import show
+# 'show' function is already available in the execution environment
 show(bracket)
 `,
             gear: `
@@ -310,7 +339,7 @@ with BuildPart() as gear:
 gear.color = (0.6, 0.6, 0.6, 1.0)  # Gray color
 
 # Show the gear
-from yacv_server import show
+# 'show' function is already available in the execution environment
 show(gear)
 `
         };

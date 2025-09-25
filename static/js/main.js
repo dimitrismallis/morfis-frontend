@@ -340,21 +340,23 @@ async function initializeMorfisApp() {
                     window.yacvViewer = new YACVBuild123dViewer();
                     await window.yacvViewer.init(modelViewer);
 
-                    // Auto-load a simple default Build123d model
-                    const defaultBuild123dCode = `from build123d import *
+                    // Auto-load test objects on startup
+                    console.log('🚀 Auto-loading test objects on startup...');
 
-# Create a simple box
-with BuildPart() as part:
-    Box(20, 20, 20)
+                    // First ensure objects exist, then connect viewer
+                    await autoLoadTestObjects();
 
-# Show in YACV viewer
-from yacv_server import show
-show(part, names=["SimpleBox"])`;
+                    // Give extra time for objects to be fully created and viewer to stabilize
+                    setTimeout(() => {
+                        if (window.yacvViewer && window.yacvViewer.viewerElement) {
+                            console.log('🔄 Final refresh of integrated viewer...');
+                            const timestamp = Date.now();
+                            const baseSrc = window.yacvViewer.serverUrl + 'index.html';
+                            window.yacvViewer.viewerElement.src = `${baseSrc}?startup=${timestamp}`;
+                        }
+                    }, 2000);
 
-                    // Load the default model
-                    console.log('🚀 Loading default Build123d model...');
-                    await window.yacvViewer.executeBuild123dCode(defaultBuild123dCode);
-                    console.log('✅ Default Build123d model loaded successfully');
+                    console.log('✅ Test objects setup completed');
 
                     // Show the YACV controls after successful initialization
                     const yacvControls = document.getElementById('yacvControls');
@@ -522,6 +524,8 @@ show(part, names=["SimpleBox"])`;
             handleDesignSelection('coffee_table');
         });
     }
+
+    // Test YACV Integration Button
 
     // Utility function to clear/reset the 3D model viewer
     function clearModel() {
@@ -1171,6 +1175,59 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+// Function to test YACV integration with sample objects
+async function autoLoadTestObjects() {
+    console.log('🎯 Auto-loading test YACV objects...');
+
+    try {
+        // Get tab ID from session storage
+        const tabId = sessionStorage.getItem('tabId');
+
+        // Call the test endpoint to create objects
+        const response = await fetch('/api/test-yacv', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(tabId && { 'X-Tab-ID': tabId })
+            }
+        });
+
+        const result = await response.json();
+
+        // Check for authentication errors
+        if (response.status === 401) {
+            console.error('❌ Authentication required for auto-loading test objects');
+            return;
+        }
+
+        if (result.success) {
+            console.log('✅ Test objects created successfully:', result.shown_objects);
+
+            // Give a moment for the objects to be fully processed
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Refresh the integrated viewer to show the new objects
+            if (window.yacvViewer && window.yacvViewer.initialized) {
+                console.log('🔄 Refreshing integrated YACV viewer...');
+                // Force reload the viewer iframe to show new objects
+                if (window.yacvViewer.viewerElement) {
+                    const timestamp = Date.now();
+                    const currentSrc = window.yacvViewer.viewerElement.src;
+                    const baseSrc = currentSrc.split('?')[0];
+                    window.yacvViewer.viewerElement.src = `${baseSrc}?refresh=${timestamp}`;
+                    console.log('✅ Integrated viewer refreshed with test objects');
+                }
+            }
+        } else {
+            console.error('❌ Failed to auto-load test objects:', result.error);
+        }
+
+    } catch (error) {
+        console.error('❌ Error auto-loading test objects:', error);
+    }
+}
+
 
 // Global function to open YACV viewer in new window
 function openYacvInNewWindow() {
