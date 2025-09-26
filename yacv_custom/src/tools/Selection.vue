@@ -488,7 +488,7 @@ function updateDistances() {
   return;
 }
 
-defineExpose({deselect, updateBoundingBox, updateDistances});
+defineExpose({deselect, updateBoundingBox, updateDistances, toggleSelection, selectionEnabled});
 
 // Add keyboard shortcuts
 window.addEventListener('keydown', (event) => {

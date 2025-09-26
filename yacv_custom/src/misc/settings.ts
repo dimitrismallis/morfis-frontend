@@ -21,7 +21,7 @@ export const settings = (async () => {
             '<auto>', // Get the default preload URL if not overridden
         ],
         loadHelpers: true,
-        edgeWidth: 0, /* The default line size for edges, set to 0 to use basic gl.LINEs */
+        edgeWidth: 0.5, /* The default line size for edges and vertex markers - balanced for good visibility */
         displayLoadingEveryMs: 1000, /* How often to display partially loaded models */
         monitorEveryMs: 100,
         monitorOpenTimeoutMs: 1000,

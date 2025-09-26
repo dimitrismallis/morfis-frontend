@@ -77,10 +77,11 @@ const wireframe = ref(false);
 
 // Listeners for changes in the properties (or viewer reloads)
 function onEnabledFeaturesChange(newEnabledFeatures: Array<number>) {
-  //console.log('Enabled features may have changed', newEnabledFeatures)
+  console.log('🔧 Enabled features changed for', modelName, ':', newEnabledFeatures)
   let scene = props.viewer?.scene;
   let sceneModel = (scene as any)?._model;
   if (!scene || !sceneModel) return;
+  let vertexCount = 0;
   sceneModel.traverse((child: MObject3D) => {
     if (child.userData[extrasNameKey] === modelName) {
       let childIsFace = child.type == 'Mesh' || child.type == 'SkinnedMesh'
@@ -92,9 +93,14 @@ function onEnabledFeaturesChange(newEnabledFeatures: Array<number>) {
           child.visible = visible;
           if (child.userData.backChild) child.userData.backChild.visible = visible;
         }
+        if (childIsVertex) {
+          vertexCount++;
+          console.log('🔴 Vertex object found:', child.type, 'visible:', visible, 'material size:', (child.material as any)?.size);
+        }
       }
     }
   });
+  console.log('🔴 Total vertex objects for', modelName, ':', vertexCount);
   scene.queueRender()
 }
 
@@ -212,7 +218,7 @@ function onEdgeWidthChange(newEdgeWidth: number) {
         if (newEdgeWidth > 0) linesToImprove.push(child);
       }
       if (child.type == 'Points') {
-        (child.material as any).size = newEdgeWidth > 0 ? newEdgeWidth * 50 : 5;
+        (child.material as any).size = newEdgeWidth > 0 ? newEdgeWidth * 50 : 8;
         child.material.needsUpdate = true;
       }
     }

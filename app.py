@@ -84,12 +84,12 @@ def check_password_protection():
             yacv_endpoints = ["yacv_api_object", "yacv_api_object_route", "yacv_frontend_api_object",
                               "yacv_api_updates", "yacv_api_updates_route", "yacv_static_files",
                               "yacv_frontend", "yacv_assets", "yacv_root", "yacv_index_specific",
-                              "test_yacv"]
+                              "test_yacv", "handle_geometry_selection"]
             if request.endpoint not in yacv_endpoints:
                 return jsonify({"error": "Authentication required"}), 401
 
         # Block POST requests that could modify data
-        if request.method == "POST" and request.endpoint not in ["login", "test_yacv"]:
+        if request.method == "POST" and request.endpoint not in ["login", "test_yacv", "handle_geometry_selection"]:
             return jsonify({"error": "Authentication required"}), 401
 
         # Block specific endpoints that fetch/modify data
@@ -1064,6 +1064,12 @@ print("Single test box created and displayed in YACV!")
         # Execute the sample code
         exec(sample_code, exec_globals)
 
+        # Store the test object for geometry selection API
+        if 'box' in exec_globals:
+            stored_build123d_objects['cadmodel'] = exec_globals['box']
+            logging.info(
+                "🎯 Stored test box as 'cadmodel' for geometry selection")
+
         # Debug: Check what objects are actually in the YACV instance
         shown_objects = yacv.shown_object_names()
         logging.info(f"🧪 Test: Objects after execution: {shown_objects}")
@@ -1456,11 +1462,11 @@ def yacv_index_specific():
     # Generate fresh HTML with current timestamp
     timestamp = int(time.time())
 
-    # Serve the actual built index.html instead of generating it
+    # Serve the actual built index.html from dist directory
     from flask import send_from_directory
-    yacv_frontend_path = os.path.join(
-        os.path.dirname(__file__), "yacv_custom", "frontend")
-    return send_from_directory(yacv_frontend_path, "index.html")
+    yacv_dist_path = os.path.join(
+        os.path.dirname(__file__), "yacv_custom", "dist")
+    return send_from_directory(yacv_dist_path, "index.html")
 
 
 @app.route("/dev+http://localhost:5000")
@@ -1486,6 +1492,7 @@ stored_build123d_objects = {}
 @app.route("/api/geometry-selection", methods=["POST"])
 def handle_geometry_selection():
     """Handle geometry selection data from frontend and map to build123d objects."""
+    logging.info("🔧 Function handle_geometry_selection called")
     try:
         data = request.json
         logging.info(f"🎯 Received geometry selection: {data}")
@@ -1495,6 +1502,11 @@ def handle_geometry_selection():
         # "face", "edge", or "vertex"
         selection_type = data.get("selectionType")
         geometry_index = data.get("geometryIndex")
+
+        logging.info(
+            f"🔍 Parsed data: action={action}, object_name='{object_name}', selection_type={selection_type}, geometry_index={geometry_index}")
+        logging.info(
+            f"🔍 Available objects: {list(stored_build123d_objects.keys())}")
 
         # Skip deselect actions - we only care about selections
         if action == "deselect":
@@ -1602,7 +1614,13 @@ def handle_geometry_selection():
 
     except Exception as e:
         logging.error(f"Error handling geometry selection: {str(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+    logging.error(
+        "🚨 Function reached end without return - this should never happen!")
+    return jsonify({"success": False, "error": "Function completed without proper return"}), 500
 
 
 @app.route("/yacv/<path:filename>")
@@ -1620,12 +1638,12 @@ def yacv_static_files(filename):
     if '.' not in filename:
         return "Not found", 404
 
-    yacv_frontend_path = os.path.join(
-        os.path.dirname(__file__), "yacv_custom", "frontend")
+    yacv_dist_path = os.path.join(
+        os.path.dirname(__file__), "yacv_custom", "dist")
 
     try:
         response = make_response(
-            send_from_directory(yacv_frontend_path, filename))
+            send_from_directory(yacv_dist_path, filename))
         # Allow normal caching for static files to prevent multiple loads
         response.headers['Cache-Control'] = 'public, max-age=300'  # 5 minutes
         # Add ETag based on filename for reasonable caching

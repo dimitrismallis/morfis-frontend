@@ -45,6 +45,47 @@ onUpdated(() => {
     scene.value = elem.value[$scene] as ModelScene;
     renderer.value = elem.value[$renderer] as Renderer;
     controls.value = (elem.value as any)[$controls] as SmoothControls;
+    
+    // Ensure all model features (faces, edges, vertices) are visible since Models panel is hidden
+    if (scene.value) {
+      const sceneModel = (scene.value as any)?._model;
+      if (sceneModel) {
+        let vertexCount = 0;
+        let faceCount = 0;
+        let edgeCount = 0;
+        
+        sceneModel.traverse((child: any) => {
+          const isFace = child.type === 'Mesh' || child.type === 'SkinnedMesh';
+          const isEdge = child.type === 'Line' || child.type === 'LineSegments' || child.type === 'LineSegments2';
+          const isVertex = child.type === 'Points';
+          
+          // Count and force visibility for all geometry types
+          if (isFace) {
+            faceCount++;
+            child.visible = true;
+            if (child.userData.backChild) child.userData.backChild.visible = true;
+          }
+          if (isEdge) {
+            edgeCount++;
+            child.visible = true;
+            if (child.userData.backChild) child.userData.backChild.visible = true;
+          }
+          if (isVertex) {
+            vertexCount++;
+            child.visible = true;
+            if (child.userData.backChild) child.userData.backChild.visible = true;
+            // Also ensure proper vertex size for visibility - smaller size for better balance
+            if (child.material && (child.material as any).size !== undefined) {
+              (child.material as any).size = Math.max(8, Math.min((child.material as any).size, 12));
+              child.material.needsUpdate = true;
+            }
+            console.log('🔴 VERTEX MADE VISIBLE:', child.type, 'size:', (child.material as any)?.size, 'visible:', child.visible);
+          }
+        });
+        
+        console.log('🎯 YACV v6 - Model geometry found:', {faces: faceCount, edges: edgeCount, vertices: vertexCount});
+      }
+    }
     // Recover the camera position if it was set before
     if (lastCameraTargetPosition) {
       // console.log("RESTORING camera position?", lastCameraTargetPosition);

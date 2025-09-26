@@ -80,11 +80,20 @@ function updateGizmo() {
 }
 
 let reinstall = () => {
-  if (!container.value) return;
+  if (!container.value) {
+    console.log('🚨 OrientationGizmo: container not available');
+    return;
+  }
+  if (!props.viewer?.scene) {
+    console.log('🚨 OrientationGizmo: viewer scene not available');
+    return;
+  }
+  console.log('✅ OrientationGizmo: creating gizmo...');
   if (gizmo) container.value.removeChild(gizmo);
   gizmo = createGizmo(container.value, props.viewer.scene!! as any) as typeof gizmo;
   container.value.appendChild(gizmo);
   requestIdleCallback(updateGizmo, {timeout: 250}); // Low priority updates
+  console.log('✅ OrientationGizmo: gizmo created and added to container');
 }
 onMounted(reinstall)
 onUpdated(reinstall);
