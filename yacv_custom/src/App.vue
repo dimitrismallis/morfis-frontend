@@ -179,7 +179,7 @@ document.body.addEventListener("drop", async e => {
       
       <!-- Version indicator - always visible in bottom right corner -->
       <div style="position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); color: white; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; pointer-events: none; z-index: 9999; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-        YACV v6
+        MORFIS v0.6
       </div>
     </v-main>
 
